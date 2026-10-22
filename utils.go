@@ -1,0 +1,37 @@
+package main
+
+import "fmt"
+
+// ParseLongitude แยกค่าลองจิจูดออกเป็น index ของราศีและเศษองศา
+func ParseLongitude(lon float64) (int, float64) {
+	signIdx := int(lon / 30)
+	degree := lon - float64(signIdx)*30
+	return signIdx, degree
+}
+
+// NormalizeAngle ปรับค่ามุมให้อยู่ในช่วง 0 ถึง 360 องศาเสมอ
+func NormalizeAngle(val float64) float64 {
+	for val < 0 {
+		val += 360
+	}
+	for val >= 360 {
+		val -= 360
+	}
+	return val
+}
+
+// FormatDMS แปลงค่าองศบทศนิยมให้เป็น องศา°, ลิปดา', ฟิลิปดา" (ละเอียดถึงฟิลิปดา)
+func FormatDMS(decimalDegree float64) string {
+	deg := int(decimalDegree)
+	sub := (decimalDegree - float64(deg)) * 60
+	min := int(sub)
+	sec := (sub - float64(min)) * 60
+	return fmt.Sprintf("%2d° %2d' %05.2f\"", deg, min, sec)
+}
+
+// FormatSignDMS แปลงองศาเต็มระบบราศี ให้เป็น ชื่อราศี + องศา° ลิปดา' ฟิลิปดา"
+func FormatSignDMS(lon float64, signs []string) string {
+	signIdx, degree := ParseLongitude(lon)
+	dmsStr := FormatDMS(degree)
+	return fmt.Sprintf("%s (%s)", signs[signIdx], dmsStr)
+}
