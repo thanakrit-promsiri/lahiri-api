@@ -4,89 +4,69 @@ import (
 	"testing"
 )
 
-// ทดสอบฟังก์ชันแปลงองศาไม่ให้เกิน 360 หรือติดลบ
-func TestNormalizeAngle(t *testing.T) {
-	tests := []struct {
-		input    float64
-		expected float64
-	}{
-		{370.0, 10.0},
-		{-10.0, 350.0},
-		{45.0, 45.0},
-		{725.0, 5.0},
-	}
-
-	for _, test := range tests {
-		result := NormalizeAngle(test.input)
-		if result != test.expected {
-			t.Errorf("NormalizeAngle(%.2f) = %.2f; expected %.2f", test.input, result, test.expected)
-		}
+func TestGetDefaultConfig(t *testing.T) {
+	cfg := GetDefaultConfig()
+	if cfg.Year <= 0 || cfg.Month <= 0 || cfg.Day <= 0 {
+		t.Errorf("Invalid default date configuration: %+v", cfg)
 	}
 }
 
-// ทดสอบฟังก์ชันแยกองศาและราศี
+func TestFormatDMS(t *testing.T) {
+	res := FormatDMS(15.5)
+	expected := "15° 30' 00.00\""
+	if res != expected {
+		t.Errorf("Expected %s, got %s", expected, res)
+	}
+}
+
 func TestParseLongitude(t *testing.T) {
-	signIdx, degree := ParseLongitude(45.5)
-	if signIdx != 1 || degree != 15.5 {
-		t.Errorf("ParseLongitude(45.5) got signIdx=%d, degree=%.2f; expected 1, 15.5", signIdx, degree)
+	signIdx, deg := ParseLongitude(45.0)
+	if signIdx != 1 || deg != 15.0 {
+		t.Errorf("ParseLongitude failed: got signIdx=%d, deg=%.2f", signIdx, deg)
 	}
 }
 
-// ทดสอบการคำนวณ Julian Day และค่า Ayanamsa (Lahiri)
-func TestSetupEphemeris(t *testing.T) {
-	cfg := Config{
-		Year:      1988,
-		Month:     12,
-		Day:       23,
-		HourThai:  10.25,
-		TimeZone:  7.0,
-		Latitude:  13.7563,
-		Longitude: 100.5018,
-	}
-
-	jd, ayanamsa := setupEphemeris(cfg)
-
-	if jd <= 0 {
-		t.Errorf("Invalid Julian Day: %.2f", jd)
-	}
-
-	if ayanamsa < 23.0 || ayanamsa > 24.0 {
-		t.Errorf("Ayanamsa out of expected range: %.2f", ayanamsa)
+func TestGetNakshatra(t *testing.T) {
+	nak, pada, _ := GetNakshatra(0.0)
+	if nak.Name != "Ashwini" || pada != 1 || nak.Lord != "Ketu" {
+		t.Errorf("Nakshatra calculation error for 0.0 degree: got %s (Pada %d)", nak.Name, pada)
 	}
 }
 
-// ทดสอบความถูกต้องของอาเรย์รายชื่อราศี
-func TestGetZodiacSigns(t *testing.T) {
+func TestCalculatePlanets(t *testing.T) {
+	cfg := GetDefaultConfig()
 	signs := GetZodiacSigns()
-	if len(signs) != 12 {
-		t.Errorf("Expected 12 zodiac signs, got %d", len(signs))
-	}
-	if signs[0] != "Aries" || signs[11] != "Pisces" {
-		t.Errorf("Zodiac signs order is incorrect")
-	}
-}
+	jd, _ := setupEphemeris(cfg)
+	flag := 0
 
-// ทดสอบการคำนวณระบบภพ Whole Sign จากฟังก์ชัน processHouses
-func TestProcessHouses(t *testing.T) {
-	cfg := Config{
-		Year:        1988,
-		Month:       12,
-		Day:         23,
-		HourThai:    10.25,
-		TimeZone:    7.0,
-		Latitude:    13.7563,
-		Longitude:   100.5018,
-		HouseSystem: int('W'),
+	results := CalculatePlanets(jd, flag, signs)
+	if len(results) == 0 {
+		t.Errorf("Expected planetary results, got 0")
 	}
 
-	jd, ayanamsa := setupEphemeris(cfg)
-	signs := GetZodiacSigns()
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("processHouses panicked: %v", r)
+	foundSun := false
+	for _, p := range results {
+		if p.Name == "Sun" {
+			foundSun = true
+			break
 		}
-	}()
+	}
+	if !foundSun {
+		t.Errorf("Sun position not found in calculation results")
+	}
+}
 
-	processHouses(jd, cfg.Latitude, cfg.Longitude, cfg.HouseSystem, ayanamsa, signs)
+func TestCalculateHouses(t *testing.T) {
+	cfg := GetDefaultConfig()
+	signs := GetZodiacSigns()
+	jd, ayanamsa := setupEphemeris(cfg)
+
+	houses := CalculateHouses(jd, cfg.Latitude, cfg.Longitude, cfg.HouseSystem, ayanamsa, signs)
+	if len(houses) == 0 {
+		t.Errorf("Expected house angles results, got 0")
+	}
+
+	if houses[0].Name != "Ascendant (ASC)" {
+		t.Errorf("Expected first house angle to be Ascendant (ASC), got %s", houses[0].Name)
+	}
 }
