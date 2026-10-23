@@ -1,0 +1,41 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef0123456789",
+    "name": "Lahiri Astrology API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Calculate Horoscope",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"calculateReq\": {\n    \"year\": 2026,\n    \"month\": 10,\n    \"day\": 22,\n    \"hour_thai\": 12.5,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018,\n    \"house_system\": \"W\"\n  }\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/v1/hora/calculate",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "v1",
+            "hora",
+            "calculate"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
