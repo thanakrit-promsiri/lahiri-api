@@ -58,7 +58,7 @@ func main() {
 		}
 	})
 
-	port := ":8080"
+	port := ":9999"
 	Log.Info("Starting HTTP Server", zap.String("port", port))
 	if err := http.ListenAndServe(port, nil); err != nil {
 		Log.Fatal("Server failed to start", zap.Error(err))
