@@ -2,10 +2,17 @@ package calculator
 
 // PositionDetail เก็บรายละเอียดองศา ลิปดา ฟิลิปดา และราศี
 type PositionDetail struct {
-	Sign   string  `json:"sign"`   // เช่น "Aries", "Libra"
-	Degree int     `json:"degree"` // องศา (0-29)
-	Minute int     `json:"minute"` // ลิปดา (0-59)
-	Second float64 `json:"second"` // ฟิลิปดา (0-59.99)
+	Sign   string  `json:"sign"`   
+	Degree int     `json:"degree"` 
+	Minute int     `json:"minute"` 
+	Second float64 `json:"second"` 
+}
+
+// NavamsaDetail เก็บข้อมูลผลลัพธ์ของนวางศ์ (D9)
+type NavamsaDetail struct {
+	Sign     string `json:"sign"`      // ราศีนวางศ์ (ภาษาอังกฤษ)
+	SignThai string `json:"sign_thai"` // ราศีนวางศ์ (ภาษาไทย)
+	Index    int    `json:"index"`     // นวางศ์ที่ (1-9)
 }
 
 // PlanetResult เก็บผลลัพธ์การคำนวณดาวแต่ละดวง
@@ -28,11 +35,11 @@ type HouseResult struct {
 
 // NakshatraInfo เก็บข้อมูลรายละเอียดของแต่ละนักษัตร
 type NakshatraInfo struct {
-	Index    int     // ลำดับที่ 1-27
-	Name     string  // ชื่อนักษัตร
-	Lord     string  // ดาวเจ้าเรือน (Vimshottari Dasha Lord)
-	StartDeg float64 // องศาเริ่มต้นในจักรวาล (0 - 360)
-	EndDeg   float64 // องศาสิ้นสุด
+	Index    int     
+	Name     string  
+	Lord     string  
+	StartDeg float64 
+	EndDeg   float64 
 }
 
 // Config เก็บค่าพารามิเตอร์ตั้งต้นทั้งหมดของดวงชะตา

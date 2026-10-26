@@ -63,6 +63,7 @@ func HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 	for _, p := range planetRes {
 		nak, pada, _ := calculator.GetNakshatra(p.Longitude)
 		posDetail := calculator.ParsePositionDetail(p.Longitude)
+		navamsaRes := calculator.CalculateNavamsa(p.Longitude)
 
 		apiPlanets = append(apiPlanets, ApiPlanet{
 			Name:         p.Name,
@@ -73,6 +74,7 @@ func HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 			Pada:         pada,
 			Lord:         nak.Lord,
 			IsRetrograde: p.IsRetro,
+			Navamsa:      navamsaRes,
 		})
 	}
 
@@ -87,6 +89,7 @@ func HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 	for _, h := range houseRes {
 		nak, pada, _ := calculator.GetNakshatra(h.Degree)
 		posDetail := calculator.ParsePositionDetail(h.Degree)
+		navamsaRes := calculator.CalculateNavamsa(h.Degree)
 
 		apiHouses = append(apiHouses, ApiHouse{
 			Name:        h.Name,
@@ -96,6 +99,7 @@ func HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 			Nakshatra:   nak.Name,
 			Pada:        pada,
 			Lord:        nak.Lord,
+			Navamsa:     navamsaRes,
 		})
 	}
 

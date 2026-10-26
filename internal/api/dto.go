@@ -52,6 +52,7 @@ type ApiPlanet struct {
 	Pada         int                       `json:"pada"`
 	Lord         string                    `json:"lord"`
 	IsRetrograde bool                      `json:"is_retrograde"`
+	Navamsa      calculator.NavamsaDetail  `json:"navamsa"`
 }
 
 type ApiHouse struct {
@@ -62,6 +63,7 @@ type ApiHouse struct {
 	Nakshatra   string                    `json:"nakshatra"`
 	Pada        int                       `json:"pada"`
 	Lord        string                    `json:"lord"`
+	Navamsa     calculator.NavamsaDetail  `json:"navamsa"`
 }
 
 type ApiWholeSign struct {
