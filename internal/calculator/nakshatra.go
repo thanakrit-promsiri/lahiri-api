@@ -2,19 +2,10 @@ package calculator
 
 import "fmt"
 
-// NakshatraInfo เก็บข้อมูลรายละเอียดของแต่ละนักษัตร
-type NakshatraInfo struct {
-	Index    int     // ลำดับที่ 1-27
-	Name     string  // ชื่อนักษัตร
-	Lord     string  // ดาวเจ้าเรือน (Vimshottari Dasha Lord)
-	StartDeg float64 // องศาเริ่มต้นในจักรวาล (0 - 360)
-	EndDeg   float64 // องศา สิ้นสุด
-}
-
-// GetNakshatra รายชื่อนักษัตรทั้ง 27 แห่งโหราศาสตร์เวท
+// GetNakshatra คำนวณตำแหน่งนักษัตรทั้ง 27 แห่งโหราศาสตร์เวทจากค่าลองจิจูด
 func GetNakshatra(lon float64) (NakshatraInfo, int, float64) {
 	// แต่ละนักษัตรกว้าง 13° 20' หรือ 13.333333 องศา
-	span := 360.0 / 27.0 // 13.333333333333334
+	span := 360.0 / 27.0
 
 	nakIndex := int(lon / span)
 	if nakIndex >= 27 {
@@ -29,18 +20,8 @@ func GetNakshatra(lon float64) (NakshatraInfo, int, float64) {
 		pada = 4
 	}
 
-	names := []string{
-		"Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra",
-		"Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni",
-		"Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha",
-		"Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha",
-		"Purva Bhadrapada", "Uttara Bhadrapada", "Revati",
-	}
-
-	// ลำดับดาวเจ้าเรือน วนซ้ำ 3 รอบตามระบบ Vimshottari Dasha (Ketu, Venus, Sun, Moon, Mars, Rahu, Jupiter, Saturn, Mercury)
-	lords := []string{
-		"Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury",
-	}
+	names := GetNakshatraNames()
+	lords := GetNakshatraLords()
 	lord := lords[nakIndex%9]
 
 	info := NakshatraInfo{

@@ -4,16 +4,6 @@ import (
 	"github.com/mshafiee/swephgo"
 )
 
-// PlanetResult เก็บผลลัพธ์การคำนวณดาวแต่ละดวง
-type PlanetResult struct {
-	Name      string
-	Longitude float64
-	Speed     float64
-	PosStr    string
-	NakStr    string
-	IsRetro   bool
-}
-
 // CalculatePlanets ประมวลผลตำแหน่งดาวทั้งหมดและคืนค่าเป็น slice ของผลลัพธ์
 func CalculatePlanets(jd float64, flags int, signs []string) []PlanetResult {
 	var results []PlanetResult

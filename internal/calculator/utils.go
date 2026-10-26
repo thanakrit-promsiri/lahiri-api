@@ -3,18 +3,6 @@ package calculator
 import "fmt"
 
 // ==========================================
-// 1. Structs & Types
-// ==========================================
-
-// PositionDetail เก็บรายละเอียดองศา ลิปดา ฟิลิปดา และราศี
-type PositionDetail struct {
-	Sign   string  `json:"sign"`   // เช่น "Aries", "Libra"
-	Degree int     `json:"degree"` // องศา (0-29)
-	Minute int     `json:"minute"` // ลิปดา (0-59)
-	Second float64 `json:"second"` // ฟิลิปดา (0-59.99)
-}
-
-// ==========================================
 // 2. Core Calculation & Math Functions
 // ==========================================
 
@@ -59,11 +47,6 @@ func FormatSignDMS(lon float64, signs []string) string {
 // ==========================================
 // 4. Domain & Helper Functions
 // ==========================================
-
-// GetEnglishSigns คืนค่ารายชื่อราศีภาษาอังกฤษมาตรฐาน
-func GetEnglishSigns() []string {
-	return []string{"Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"}
-}
 
 // ParsePositionDetail แปลงค่าลองจิจูดเป็นรายละเอียดปลีกย่อย (ราศี, องศา, ลิปดา, ฟิลิปดา)
 func ParsePositionDetail(lon float64) PositionDetail {

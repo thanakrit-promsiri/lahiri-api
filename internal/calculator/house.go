@@ -4,14 +4,6 @@ import (
 	"github.com/mshafiee/swephgo"
 )
 
-// HouseResult เก็บผลลัพธ์มุมลัคนาและภพ
-type HouseResult struct {
-	Name   string
-	Degree float64
-	PosStr string
-	NakStr string
-}
-
 // CalculateHouses ประมวลผลลัคนา, MC, DSC, IC และคืนค่าผลลัพธ์
 func CalculateHouses(jd float64, lat float64, lon float64, houseSys int, ayanamsa float64, signs []string) []HouseResult {
 	cusps := make([]float64, 13)
