@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	"lahiri-api/internal/api"
+
 	"go.uber.org/zap"
 )
 
@@ -30,6 +32,9 @@ func main() {
 	InitLogger()
 	defer SyncLogger()
 
+	// ส่ง Log ไปให้แพ็กเกจ api รู้จัก
+	api.SetLogger(Log)
+
 	Log.Info("Initializing Vedic Astrology API Service")
 
 	http.HandleFunc("/api/v1/hora/calculate", func(w http.ResponseWriter, r *http.Request) {
@@ -39,18 +44,16 @@ func main() {
 			statusCode:     http.StatusOK,
 		}
 
-		HandleCalculateHora(recorder, r)
+		api.HandleCalculateHora(recorder, r)
 
 		rawJSON := recorder.body.Bytes()
 		if len(rawJSON) > 0 {
-			// สร้าง Struct ครอบชั้นนอกตามที่ API พ่นออกมาจริง
 			var apiWrapper struct {
-				Status        string        `json:"status"`
-				CalculateResp CalculateResp `json:"calculateResp"`
+				Status        string            `json:"status"`
+				CalculateResp api.CalculateResp `json:"calculateResp"`
 			}
 
 			if err := json.Unmarshal(rawJSON, &apiWrapper); err == nil {
-				// ส่ง CalculateResp ที่แกะออกมาแล้วเข้าฟังก์ชัน Debug Log
 				RunHoroscopedebug(apiWrapper.CalculateResp)
 			} else {
 				Log.Error("JSON Unmarshal error", zap.Error(err))
@@ -65,7 +68,7 @@ func main() {
 	}
 }
 
-func RunHoroscopedebug(resp CalculateResp) {
+func RunHoroscopedebug(resp api.CalculateResp) {
 	var planetLogLines []string
 	for _, p := range resp.Planets {
 		retroStr := ""
@@ -106,5 +109,4 @@ func RunHoroscopedebug(resp CalculateResp) {
 	if Log != nil {
 		Log.Info(sb.String())
 	}
-
 }

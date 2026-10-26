@@ -1,4 +1,4 @@
-package main
+package calculator
 
 import "fmt"
 
@@ -15,7 +15,7 @@ type NakshatraInfo struct {
 func GetNakshatra(lon float64) (NakshatraInfo, int, float64) {
 	// แต่ละนักษัตรกว้าง 13° 20' หรือ 13.333333 องศา
 	span := 360.0 / 27.0 // 13.333333333333334
-	
+
 	nakIndex := int(lon / span)
 	if nakIndex >= 27 {
 		nakIndex = 26

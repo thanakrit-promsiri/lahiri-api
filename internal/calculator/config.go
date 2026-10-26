@@ -1,4 +1,4 @@
-package main
+package calculator
 
 // Config เก็บค่าพารามิเตอร์ตั้งต้นทั้งหมดของดวงชะตา
 type Config struct {

@@ -1,7 +1,8 @@
-package main
+package calculator
 
 import (
 	"fmt"
+
 	"github.com/mshafiee/swephgo"
 )
 

@@ -1,12 +1,21 @@
-package main
+package api
 
 import (
 	"encoding/json"
 	"net/http"
 
+	"lahiri-api/internal/calculator"
+
 	"github.com/mshafiee/swephgo"
 	"go.uber.org/zap"
 )
+
+// ตัวแปร Log สำหรับรองรับการใช้งานภายในแพ็กเกจ api
+var Log *zap.Logger
+
+func SetLogger(l *zap.Logger) {
+	Log = l
+}
 
 // --- Request Structs ---
 type CalculateWrapperReq struct {
@@ -49,71 +58,31 @@ type ApiLocation struct {
 	Longitude float64 `json:"longitude"`
 }
 
-type ApiPositionDetail struct {
-	Sign   string  `json:"sign"`   // เช่น "Libra"
-	Degree int     `json:"degree"` // องศา (0-29)
-	Minute int     `json:"minute"` // ลิปดา (0-59)
-	Second float64 `json:"second"` // ฟิลิปดา (0-59.99)
-}
-
 type ApiPlanet struct {
-	Name         string            `json:"name"`
-	Longitude    float64           `json:"longitude"`
-	PositionStr  string            `json:"position_string"`
-	Position     ApiPositionDetail `json:"position"`
-	Nakshatra    string            `json:"nakshatra"`
-	Pada         int               `json:"pada"`
-	Lord         string            `json:"lord"`
-	IsRetrograde bool              `json:"is_retrograde"`
+	Name         string                     `json:"name"`
+	Longitude    float64                    `json:"longitude"`
+	PositionStr  string                     `json:"position_string"`
+	Position     calculator.PositionDetail  `json:"position"`
+	Nakshatra    string                     `json:"nakshatra"`
+	Pada         int                        `json:"pada"`
+	Lord         string                     `json:"lord"`
+	IsRetrograde bool                       `json:"is_retrograde"`
 }
 
 type ApiHouse struct {
-	Name        string            `json:"name"`
-	Degree      float64           `json:"degree"`
-	PositionStr string            `json:"position_string"`
-	Position    ApiPositionDetail `json:"position"`
-	Nakshatra   string            `json:"nakshatra"`
-	Pada        int               `json:"pada"`
-	Lord        string            `json:"lord"`
+	Name        string                    `json:"name"`
+	Degree      float64                   `json:"degree"`
+	PositionStr string                    `json:"position_string"`
+	Position    calculator.PositionDetail `json:"position"`
+	Nakshatra   string                    `json:"nakshatra"`
+	Pada        int                       `json:"pada"`
+	Lord        string                    `json:"lord"`
 }
 
 type ApiWholeSign struct {
 	House    int    `json:"house"`
 	Sign     string `json:"sign"`
 	SignThai string `json:"sign_thai"`
-}
-
-// --- Helper Function: แกะค่าองศาเป็นรายละเอียดปลีกย่อย ---
-func ParsePositionDetail(lon float64) ApiPositionDetail {
-	englishSigns := []string{"Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"}
-	
-	normalizedLon := lon
-	for normalizedLon < 0 {
-		normalizedLon += 360.0
-	}
-	for normalizedLon >= 360.0 {
-		normalizedLon -= 360.0
-	}
-
-	signIdx := int(normalizedLon / 30.0)
-	degInSign := normalizedLon - float64(signIdx*30)
-	
-	deg := int(degInSign)
-	minFloat := (degInSign - float64(deg)) * 60.0
-	min := int(minFloat)
-	sec := (minFloat - float64(min)) * 60.0
-
-	signName := ""
-	if signIdx >= 0 && signIdx < len(englishSigns) {
-		signName = englishSigns[signIdx]
-	}
-
-	return ApiPositionDetail{
-		Sign:   signName,
-		Degree: deg,
-		Minute: min,
-		Second: sec,
-	}
 }
 
 // --- HTTP Handler ---
@@ -153,14 +122,15 @@ func HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 	swephgo.SetSidMode(swephgo.SeSidmLahiri, 0, 0)
 	ayanamsa := swephgo.GetAyanamsa(jd)
 	flag := swephgo.SeflgSwieph | swephgo.SeflgSpeed | swephgo.SeflgSidereal
-	signs := GetZodiacSigns()
+	signs := calculator.GetZodiacSigns()
+	englishSigns := calculator.GetEnglishSigns()
 
 	// 1. คำนวณตำแหน่งดาว
-	planetRes := CalculatePlanets(jd, flag, signs)
+	planetRes := calculator.CalculatePlanets(jd, flag, signs)
 	var apiPlanets []ApiPlanet
 	for _, p := range planetRes {
-		nak, pada, _ := GetNakshatra(p.Longitude)
-		posDetail := ParsePositionDetail(p.Longitude)
+		nak, pada, _ := calculator.GetNakshatra(p.Longitude)
+		posDetail := calculator.ParsePositionDetail(p.Longitude)
 
 		apiPlanets = append(apiPlanets, ApiPlanet{
 			Name:         p.Name,
@@ -169,7 +139,7 @@ func HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 			Position:     posDetail,
 			Nakshatra:    nak.Name,
 			Pada:         pada,
-			Lord:         nak.Lord, // ใช้ชื่อดาวจาก Nakshatra โดยตรง
+			Lord:         nak.Lord,
 			IsRetrograde: p.IsRetro,
 		})
 	}
@@ -180,11 +150,11 @@ func HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 		houseSysCode = rune(req.HouseSystem[0])
 	}
 
-	houseRes := CalculateHouses(jd, req.Latitude, req.Longitude, int(houseSysCode), ayanamsa, signs)
+	houseRes := calculator.CalculateHouses(jd, req.Latitude, req.Longitude, int(houseSysCode), ayanamsa, signs)
 	var apiHouses []ApiHouse
 	for _, h := range houseRes {
-		nak, pada, _ := GetNakshatra(h.Degree)
-		posDetail := ParsePositionDetail(h.Degree)
+		nak, pada, _ := calculator.GetNakshatra(h.Degree)
+		posDetail := calculator.ParsePositionDetail(h.Degree)
 
 		apiHouses = append(apiHouses, ApiHouse{
 			Name:        h.Name,
@@ -193,19 +163,17 @@ func HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 			Position:    posDetail,
 			Nakshatra:   nak.Name,
 			Pada:        pada,
-			Lord:        nak.Lord, // ใช้ชื่อดาวจาก Nakshatra โดยตรง
+			Lord:        nak.Lord,
 		})
 	}
 
 	// 3. คำนวณ Whole Sign Houses
 	var apiWholeSigns []ApiWholeSign
-	englishSigns := []string{"Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"}
-
 	var ascDeg float64
 	if len(houseRes) > 0 {
 		ascDeg = houseRes[0].Degree
 	}
-	signIdx, _ := ParseLongitude(ascDeg)
+	signIdx, _ := calculator.ParseLongitude(ascDeg)
 
 	for i := 1; i <= 12; i++ {
 		currentSign := (signIdx + (i - 1)) % 12
@@ -222,7 +190,7 @@ func HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 			Metadata: ApiMetadata{
 				JulianDay:       jd,
 				AyanamsaName:    "Lahiri",
-				AyanamsaDegrees: FormatDMS(ayanamsa),
+				AyanamsaDegrees: calculator.FormatDMS(ayanamsa),
 				Location: ApiLocation{
 					Latitude:  req.Latitude,
 					Longitude: req.Longitude,

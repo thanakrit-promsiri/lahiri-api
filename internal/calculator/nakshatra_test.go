@@ -1,4 +1,4 @@
-package main
+package calculator
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 func TestGetNakshatra(t *testing.T) {
 	// ทดสอบที่ 0 องศา (ควรเป็นนักษัตรแรก Ashwini, บาทที่ 1, เจ้าเรือน Ketu)
 	info, pada, offset := GetNakshatra(0.0)
-	
+
 	if info.Index != 1 {
 		t.Errorf("Expected index 1, got %d", info.Index)
 	}
@@ -38,7 +38,7 @@ func TestFormatNakshatraString(t *testing.T) {
 	// ทดสอบการจัดรูปแบบข้อความที่ 0 องศา
 	result := FormatNakshatraString(0.0)
 	expected := "Ashwini (Pad 1) [Lord: Ketu]"
-	
+
 	if result != expected {
 		t.Errorf("Expected '%s', got '%s'", expected, result)
 	}
