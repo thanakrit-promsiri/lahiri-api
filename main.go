@@ -1,75 +1,75 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"lahiri-api/internal/api"
 
 	"go.uber.org/zap"
 )
 
-type responseRecorder struct {
-	http.ResponseWriter
-	body       *bytes.Buffer
-	statusCode int
-}
-
-func (r *responseRecorder) WriteHeader(statusCode int) {
-	r.statusCode = statusCode
-	r.ResponseWriter.WriteHeader(statusCode)
-}
-
-func (r *responseRecorder) Write(b []byte) (int, error) {
-	r.body.Write(b)
-	return r.ResponseWriter.Write(b)
-}
-
 func main() {
-	InitLogger()
+	logger := InitLogger()
 	defer SyncLogger()
 
-	// ส่ง Log ไปให้แพ็กเกจ api รู้จัก
-	api.SetLogger(Log)
+	api.SetLogger(logger)
 
-	Log.Info("Initializing Vedic Astrology API Service")
+	logger.Info("Initializing Vedic Astrology API Service")
 
-	http.HandleFunc("/api/v1/hora/calculate", func(w http.ResponseWriter, r *http.Request) {
-		recorder := &responseRecorder{
-			ResponseWriter: w,
-			body:           bytes.NewBuffer(nil),
-			statusCode:     http.StatusOK,
-		}
+	handler := api.NewHandler(logger, RunHoroscopedebug)
 
-		api.HandleCalculateHora(recorder, r)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/hora/calculate", handler.HandleCalculateHora)
 
-		rawJSON := recorder.body.Bytes()
-		if len(rawJSON) > 0 {
-			var apiWrapper struct {
-				Status        string            `json:"status"`
-				CalculateResp api.CalculateResp `json:"calculateResp"`
-			}
-
-			if err := json.Unmarshal(rawJSON, &apiWrapper); err == nil {
-				RunHoroscopedebug(apiWrapper.CalculateResp)
-			} else {
-				Log.Error("JSON Unmarshal error", zap.Error(err))
-			}
-		}
-	})
-
-	port := ":9999"
-	Log.Info("Starting HTTP Server", zap.String("port", port))
-	if err := http.ListenAndServe(port, nil); err != nil {
-		Log.Fatal("Server failed to start", zap.Error(err))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8083"
 	}
+	if !strings.HasPrefix(port, ":") {
+		port = ":" + port
+	}
+
+	srv := &http.Server{
+		Addr:              port,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	// รัน HTTP Server ใน Goroutine และรองรับ Graceful Shutdown
+	go func() {
+		logger.Info("Starting HTTP Server", zap.String("port", port))
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Fatal("Server failed to start", zap.Error(err))
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("Shutting down server gracefully...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Error("Server forced to shutdown", zap.Error(err))
+	}
+	logger.Info("Server exited properly")
 }
 
 func RunHoroscopedebug(resp api.CalculateResp) {
-	var planetLogLines []string
+	planetLogLines := make([]string, 0, len(resp.Planets))
 	for _, p := range resp.Planets {
 		retroStr := ""
 		if p.IsRetrograde {
@@ -80,14 +80,14 @@ func RunHoroscopedebug(resp api.CalculateResp) {
 		planetLogLines = append(planetLogLines, line)
 	}
 
-	var houseLogLines []string
+	houseLogLines := make([]string, 0, len(resp.HousesAndAngles))
 	for _, h := range resp.HousesAndAngles {
 		line := fmt.Sprintf("%-20s: %6.2f° (%s) | Nakshatra: %s (Pada %d) | Lord: %s",
 			h.Name, h.Degree, h.PositionStr, h.Nakshatra, h.Pada, h.Lord)
 		houseLogLines = append(houseLogLines, line)
 	}
 
-	var wholeSignLogLines []string
+	wholeSignLogLines := make([]string, 0, len(resp.WholeSignHouses))
 	for _, ws := range resp.WholeSignHouses {
 		line := fmt.Sprintf("House %-2d            : Sign %s (0° - 30°)", ws.House, ws.Sign)
 		wholeSignLogLines = append(wholeSignLogLines, line)

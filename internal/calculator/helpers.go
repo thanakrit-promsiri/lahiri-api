@@ -2,11 +2,18 @@ package calculator
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/mshafiee/swephgo"
 )
 
+// sweMu ป้องกันการเรียกใช้งาน C-library (Swiss Ephemeris) พร้อมกันจากหลาย Goroutine
+var sweMu sync.Mutex
+
 func printVersion() {
+	sweMu.Lock()
+	defer sweMu.Unlock()
+
 	sweVer := make([]byte, 12)
 	swephgo.Version(sweVer)
 	fmt.Printf("Swiss Ephemeris Version: %s\n", string(sweVer))
@@ -22,31 +29,42 @@ func printLocationInfo(cfg Config) {
 }
 
 func setupEphemeris(cfg Config) (float64, float64) {
-	hourUTC := cfg.HourThai - cfg.TimeZone
-	jd := swephgo.Julday(cfg.Year, cfg.Month, cfg.Day, hourUTC, swephgo.SeGregCal)
+	jd, ayanamsa := ComputeJulianDayAndAyanamsa(cfg.Year, cfg.Month, cfg.Day, cfg.HourThai, cfg.TimeZone)
 	fmt.Printf("Julian Day (UTC): %.6f\n\n", jd)
-
-	swephgo.SetSidMode(swephgo.SeSidmLahiri, 0, 0)
-	ayanamsa := swephgo.GetAyanamsa(jd)
 	fmt.Printf("Ayanamsa (Lahiri): %s\n\n", FormatDMS(ayanamsa))
 
 	return jd, ayanamsa
 }
 
+// ComputeJulianDayAndAyanamsa คำนวณค่า Julian Day (UTC) และค่า Ayanamsa (Lahiri) อย่างปลอดภัยต่อ Concurrency
+func ComputeJulianDayAndAyanamsa(year, month, day int, hourLocal, timeZone float64) (float64, float64) {
+	sweMu.Lock()
+	defer sweMu.Unlock()
+
+	hourUTC := hourLocal - timeZone
+	jd := swephgo.Julday(year, month, day, hourUTC, swephgo.SeGregCal)
+	swephgo.SetSidMode(swephgo.SeSidmLahiri, 0, 0)
+	ayanamsa := swephgo.GetAyanamsa(jd)
+
+	return jd, ayanamsa
+}
+
+var defaultPlanets = []PlanetConfig{
+	{swephgo.SeSun, "Sun"},
+	{swephgo.SeMoon, "Moon"},
+	{swephgo.SeMercury, "Mercury"},
+	{swephgo.SeVenus, "Venus"},
+	{swephgo.SeMars, "Mars"},
+	{swephgo.SeJupiter, "Jupiter"},
+	{swephgo.SeSaturn, "Saturn"},
+	{swephgo.SeUranus, "Uranus"},
+	{swephgo.SeNeptune, "Neptune"},
+	{swephgo.SePluto, "Pluto"},
+	{swephgo.SeMeanNode, "Rahu (Mean Node)"},
+}
+
 func getPlanetList() []PlanetConfig {
-	return []PlanetConfig{
-		{swephgo.SeSun, "Sun"},
-		{swephgo.SeMoon, "Moon"},
-		{swephgo.SeMercury, "Mercury"},
-		{swephgo.SeVenus, "Venus"},
-		{swephgo.SeMars, "Mars"},
-		{swephgo.SeJupiter, "Jupiter"},
-		{swephgo.SeSaturn, "Saturn"},
-		{swephgo.SeUranus, "Uranus"},
-		{swephgo.SeNeptune, "Neptune"},
-		{swephgo.SePluto, "Pluto"},
-		{swephgo.SeMeanNode, "Rahu (Mean Node)"},
-	}
+	return defaultPlanets
 }
 
 func printWholeSignHouses(asc float64, signs []string) {
@@ -60,6 +78,9 @@ func printWholeSignHouses(asc float64, signs []string) {
 }
 
 func cleanup() {
+	sweMu.Lock()
+	defer sweMu.Unlock()
+
 	swephgo.Close()
 	fmt.Println("\nDone!")
 }

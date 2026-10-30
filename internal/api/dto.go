@@ -1,6 +1,9 @@
 package api
 
-import "lahiri-api/internal/calculator"
+import (
+	"errors"
+	"lahiri-api/internal/calculator"
+)
 
 // --- Request Structs ---
 type CalculateWrapperReq struct {
@@ -18,7 +21,38 @@ type CalculateReq struct {
 	HouseSystem string  `json:"house_system"`
 }
 
+// Validate ตรวจสอบความถูกต้องของพารามิเตอร์ที่รับเข้ามา
+func (r CalculateReq) Validate() error {
+	if r.Year == 0 {
+		return errors.New("year is required and cannot be 0")
+	}
+	if r.Month < 1 || r.Month > 12 {
+		return errors.New("month must be between 1 and 12")
+	}
+	if r.Day < 1 || r.Day > 31 {
+		return errors.New("day must be between 1 and 31")
+	}
+	if r.HourThai < 0 || r.HourThai >= 24 {
+		return errors.New("hour_thai must be between 0 and 24")
+	}
+	if r.TimeZone < -14 || r.TimeZone > 14 {
+		return errors.New("time_zone must be between -14 and 14")
+	}
+	if r.Latitude < -90 || r.Latitude > 90 {
+		return errors.New("latitude must be between -90 and 90")
+	}
+	if r.Longitude < -180 || r.Longitude > 180 {
+		return errors.New("longitude must be between -180 and 180")
+	}
+	return nil
+}
+
 // --- Response Structs ---
+type ErrorResp struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
 type CalculateWrapperResp struct {
 	Status        string        `json:"status"`
 	CalculateResp CalculateResp `json:"calculateResp"`

@@ -10,56 +10,78 @@ import (
 	"go.uber.org/zap"
 )
 
-// ตัวแปร Log สำหรับรองรับการใช้งานภายในแพ็กเกจ api
+// Handler จัดการ HTTP requests พร้อม Dependency Injection ของ Logger
+type Handler struct {
+	logger   *zap.Logger
+	onResult func(CalculateResp)
+}
+
+// NewHandler สร้าง Handler ใหม่ หากไม่ส่ง logger จะใช้ zap.NewNop() เพื่อป้องกัน nil pointer
+func NewHandler(logger *zap.Logger, onResult func(CalculateResp)) *Handler {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	return &Handler{
+		logger:   logger,
+		onResult: onResult,
+	}
+}
+
+// ตัวแปร Log สำหรับรองรับ Backward Compatibility
 var Log *zap.Logger
 
 func SetLogger(l *zap.Logger) {
 	Log = l
 }
 
-// --- HTTP Handler ---
+// HandleCalculateHora เป็นฟังก์ชันระดับ Package ที่คงไว้เพื่อความเข้ากันได้กับโค้ด/เทสต์เดิม
 func HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
+	NewHandler(Log, nil).HandleCalculateHora(w, r)
+}
+
+// HandleCalculateHora ประมวลผลคำขอคำนวณดวงชะตา
+func (h *Handler) HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		if Log != nil {
-			Log.Warn("Invalid HTTP method attempted", zap.String("method", r.Method))
-		}
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		h.logger.Warn("Invalid HTTP method attempted", zap.String("method", r.Method))
+		writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	var reqWrapper CalculateWrapperReq
-	err := json.NewDecoder(r.Body).Decode(&reqWrapper)
-	if err != nil {
-		if Log != nil {
-			Log.Error("Failed to decode request body", zap.Error(err))
-		}
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&reqWrapper); err != nil {
+		h.logger.Error("Failed to decode request body", zap.Error(err))
+		writeJSONError(w, http.StatusBadRequest, "Invalid JSON payload: "+err.Error())
 		return
 	}
 
 	req := reqWrapper.CalculateReq
-	if Log != nil {
-		Log.Info("Received API calculation request",
-			zap.Int("year", req.Year),
-			zap.Int("month", req.Month),
-			zap.Int("day", req.Day),
-			zap.Float64("latitude", req.Latitude),
-			zap.Float64("longitude", req.Longitude),
-		)
+	if err := req.Validate(); err != nil {
+		h.logger.Warn("Invalid request parameters", zap.Error(err))
+		writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
-	hourUTC := req.HourThai - req.TimeZone
-	jd := swephgo.Julday(req.Year, req.Month, req.Day, hourUTC, swephgo.SeGregCal)
+	h.logger.Info("Received API calculation request",
+		zap.Int("year", req.Year),
+		zap.Int("month", req.Month),
+		zap.Int("day", req.Day),
+		zap.Float64("latitude", req.Latitude),
+		zap.Float64("longitude", req.Longitude),
+	)
 
-	swephgo.SetSidMode(swephgo.SeSidmLahiri, 0, 0)
-	ayanamsa := swephgo.GetAyanamsa(jd)
+	jd, ayanamsa := calculator.ComputeJulianDayAndAyanamsa(
+		req.Year, req.Month, req.Day, req.HourThai, req.TimeZone,
+	)
+
 	flag := swephgo.SeflgSwieph | swephgo.SeflgSpeed | swephgo.SeflgSidereal
 	signs := calculator.GetZodiacSigns()
 	englishSigns := calculator.GetEnglishSigns()
+	thaiSigns := calculator.GetThaiZodiacSigns()
 
 	// 1. คำนวณตำแหน่งดาว
 	planetRes := calculator.CalculatePlanets(jd, flag, signs)
-	var apiPlanets []ApiPlanet
+	apiPlanets := make([]ApiPlanet, 0, len(planetRes))
 	for _, p := range planetRes {
 		nak, pada, _ := calculator.GetNakshatra(p.Longitude)
 		posDetail := calculator.ParsePositionDetail(p.Longitude)
@@ -85,16 +107,16 @@ func HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 	}
 
 	houseRes := calculator.CalculateHouses(jd, req.Latitude, req.Longitude, int(houseSysCode), ayanamsa, signs)
-	var apiHouses []ApiHouse
-	for _, h := range houseRes {
-		nak, pada, _ := calculator.GetNakshatra(h.Degree)
-		posDetail := calculator.ParsePositionDetail(h.Degree)
-		navamsaRes := calculator.CalculateNavamsa(h.Degree)
+	apiHouses := make([]ApiHouse, 0, len(houseRes))
+	for _, hRes := range houseRes {
+		nak, pada, _ := calculator.GetNakshatra(hRes.Degree)
+		posDetail := calculator.ParsePositionDetail(hRes.Degree)
+		navamsaRes := calculator.CalculateNavamsa(hRes.Degree)
 
 		apiHouses = append(apiHouses, ApiHouse{
-			Name:        h.Name,
-			Degree:      h.Degree,
-			PositionStr: h.PosStr,
+			Name:        hRes.Name,
+			Degree:      hRes.Degree,
+			PositionStr: hRes.PosStr,
 			Position:    posDetail,
 			Nakshatra:   nak.Name,
 			Pada:        pada,
@@ -104,7 +126,7 @@ func HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. คำนวณ Whole Sign Houses
-	var apiWholeSigns []ApiWholeSign
+	apiWholeSigns := make([]ApiWholeSign, 0, 12)
 	var ascDeg float64
 	if len(houseRes) > 0 {
 		ascDeg = houseRes[0].Degree
@@ -116,28 +138,45 @@ func HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 		apiWholeSigns = append(apiWholeSigns, ApiWholeSign{
 			House:    i,
 			Sign:     englishSigns[currentSign],
-			SignThai: signs[currentSign],
+			SignThai: thaiSigns[currentSign],
 		})
 	}
 
-	resp := CalculateWrapperResp{
-		Status: "success",
-		CalculateResp: CalculateResp{
-			Metadata: ApiMetadata{
-				JulianDay:       jd,
-				AyanamsaName:    "Lahiri",
-				AyanamsaDegrees: calculator.FormatDMS(ayanamsa),
-				Location: ApiLocation{
-					Latitude:  req.Latitude,
-					Longitude: req.Longitude,
-				},
+	calcResp := CalculateResp{
+		Metadata: ApiMetadata{
+			JulianDay:       jd,
+			AyanamsaName:    "Lahiri",
+			AyanamsaDegrees: calculator.FormatDMS(ayanamsa),
+			Location: ApiLocation{
+				Latitude:  req.Latitude,
+				Longitude: req.Longitude,
 			},
-			Planets:         apiPlanets,
-			HousesAndAngles: apiHouses,
-			WholeSignHouses: apiWholeSigns,
 		},
+		Planets:         apiPlanets,
+		HousesAndAngles: apiHouses,
+		WholeSignHouses: apiWholeSigns,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if h.onResult != nil {
+		h.onResult(calcResp)
+	}
+
+	resp := CalculateWrapperResp{
+		Status:        "success",
+		CalculateResp: calcResp,
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		h.logger.Error("Failed to encode response JSON", zap.Error(err))
+	}
+}
+
+func writeJSONError(w http.ResponseWriter, statusCode int, message string) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(ErrorResp{
+		Status:  "error",
+		Message: message,
+	})
 }

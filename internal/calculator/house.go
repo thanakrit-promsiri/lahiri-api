@@ -6,6 +6,9 @@ import (
 
 // CalculateHouses ประมวลผลลัคนา, MC, DSC, IC และคืนค่าผลลัพธ์
 func CalculateHouses(jd float64, lat float64, lon float64, houseSys int, ayanamsa float64, signs []string) []HouseResult {
+	sweMu.Lock()
+	defer sweMu.Unlock()
+
 	cusps := make([]float64, 13)
 	ascmc := make([]float64, 10)
 
@@ -29,7 +32,7 @@ func CalculateHouses(jd float64, lat float64, lon float64, houseSys int, ayanams
 		{Name: "Imum Coeli (IC)", Val: ic},
 	}
 
-	var results []HouseResult
+	results := make([]HouseResult, 0, len(angles))
 	for _, a := range angles {
 		results = append(results, HouseResult{
 			Name:   a.Name,

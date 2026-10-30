@@ -32,13 +32,13 @@ func CalculateNavamsa(lon float64) NavamsaDetail {
 
 	navamsaSignIdx := (startSignIdx + navamsaIdx) % 12
 	englishSigns := GetEnglishSigns()
-	zodiacSigns := GetZodiacSigns()
+	thaiSigns := GetThaiZodiacSigns()
 
 	signName := ""
 	signThai := ""
 	if navamsaSignIdx >= 0 && navamsaSignIdx < len(englishSigns) {
 		signName = englishSigns[navamsaSignIdx]
-		signThai = zodiacSigns[navamsaSignIdx]
+		signThai = thaiSigns[navamsaSignIdx]
 	}
 
 	return NavamsaDetail{

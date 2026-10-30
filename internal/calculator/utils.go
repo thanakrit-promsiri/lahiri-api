@@ -8,8 +8,12 @@ import "fmt"
 
 // ParseLongitude แยกค่าลองจิจูดออกเป็น index ของราศีและเศษองศา
 func ParseLongitude(lon float64) (int, float64) {
-	signIdx := int(lon / 30)
-	degree := lon - float64(signIdx)*30
+	normalized := NormalizeAngle(lon)
+	signIdx := int(normalized / 30)
+	if signIdx >= 12 {
+		signIdx = 11
+	}
+	degree := normalized - float64(signIdx)*30
 	return signIdx, degree
 }
 

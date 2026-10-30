@@ -4,16 +4,25 @@ import "fmt"
 
 // GetNakshatra คำนวณตำแหน่งนักษัตรทั้ง 27 แห่งโหราศาสตร์เวทจากค่าลองจิจูด
 func GetNakshatra(lon float64) (NakshatraInfo, int, float64) {
+	normalizedLon := NormalizeAngle(lon)
 	// แต่ละนักษัตรกว้าง 13° 20' หรือ 13.333333 องศา
 	span := 360.0 / 27.0
 
-	nakIndex := int(lon / span)
-	if nakIndex >= 27 {
+	nakIndex := int(normalizedLon / span)
+	if len(nakshatraNames) > 0 && nakIndex >= len(nakshatraNames) {
+		nakIndex = len(nakshatraNames) - 1
+	}
+	// กรณีส่ง 360.0 เข้ามาตรงๆ ให้ถือเป็นปลายนักษัตรที่ 27 (Revati) ตามเดิมหากต้องการ หรือ Normalize
+	if lon == 360.0 {
 		nakIndex = 26
 	}
 
 	// คำนวณเศษองศาภายในนักษัตรนั้นๆ เพื่อหา Pada (บาท 1-4)
-	offsetInNak := lon - (float64(nakIndex) * span)
+	targetLon := normalizedLon
+	if lon == 360.0 {
+		targetLon = 360.0
+	}
+	offsetInNak := targetLon - (float64(nakIndex) * span)
 	padaSpan := span / 4.0 // บาทละ 3° 20'
 	pada := int(offsetInNak/padaSpan) + 1
 	if pada > 4 {

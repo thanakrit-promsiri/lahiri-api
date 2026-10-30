@@ -64,11 +64,40 @@ func TestHandleCalculateHora(t *testing.T) {
 		t.Errorf("Expected exactly 12 whole sign houses, got %d", len(wrapperResp.CalculateResp.WholeSignHouses))
 	}
 
+	// ทดสอบ Method Not Allowed
 	getReq := httptest.NewRequest(http.MethodGet, "/api/v1/hora/calculate", nil)
 	getRec := httptest.NewRecorder()
 	HandleCalculateHora(getRec, getReq)
 
 	if getRec.Result().StatusCode != http.StatusMethodNotAllowed {
 		t.Errorf("Expected status code %d for GET method, got %d", http.StatusMethodNotAllowed, getRec.Result().StatusCode)
+	}
+
+	// ทดสอบ Invalid JSON
+	badJSONReq := httptest.NewRequest(http.MethodPost, "/api/v1/hora/calculate", bytes.NewBufferString("{invalid-json"))
+	badJSONRec := httptest.NewRecorder()
+	HandleCalculateHora(badJSONRec, badJSONReq)
+
+	if badJSONRec.Result().StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected status code %d for invalid JSON, got %d", http.StatusBadRequest, badJSONRec.Result().StatusCode)
+	}
+
+	// ทดสอบ Input Validation (เช่น เดือนไม่ถูกต้อง)
+	invalidReqBody := CalculateWrapperReq{
+		CalculateReq: CalculateReq{
+			Year:     2026,
+			Month:    13, // เกิน 12
+			Day:      23,
+			HourThai: 12.0,
+			TimeZone: 7.0,
+		},
+	}
+	invalidBytes, _ := json.Marshal(invalidReqBody)
+	invalidReq := httptest.NewRequest(http.MethodPost, "/api/v1/hora/calculate", bytes.NewBuffer(invalidBytes))
+	invalidRec := httptest.NewRecorder()
+	HandleCalculateHora(invalidRec, invalidReq)
+
+	if invalidRec.Result().StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected status code %d for invalid input parameters, got %d", http.StatusBadRequest, invalidRec.Result().StatusCode)
 	}
 }

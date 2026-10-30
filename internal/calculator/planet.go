@@ -6,17 +6,23 @@ import (
 
 // CalculatePlanets ประมวลผลตำแหน่งดาวทั้งหมดและคืนค่าเป็น slice ของผลลัพธ์
 func CalculatePlanets(jd float64, flags int, signs []string) []PlanetResult {
-	var results []PlanetResult
+	sweMu.Lock()
+	defer sweMu.Unlock()
+
+	swephgo.SetSidMode(swephgo.SeSidmLahiri, 0, 0)
+
+	planetList := getPlanetList()
+	results := make([]PlanetResult, 0, len(planetList)+1)
 	xx := make([]float64, 6)
 	serr := make([]byte, 256)
 
-	for _, p := range getPlanetList() {
+	for _, p := range planetList {
 		res := swephgo.CalcUt(jd, p.ID, flags, xx, serr)
 		if res < 0 {
 			continue
 		}
 
-		lon := xx[0]
+		lon := NormalizeAngle(xx[0])
 		speed := xx[3]
 		results = append(results, PlanetResult{
 			Name:      p.Name,
