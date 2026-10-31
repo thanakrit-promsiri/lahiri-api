@@ -53,7 +53,22 @@ func TestHandleCalculateHora(t *testing.T) {
 	}
 
 	if len(wrapperResp.CalculateResp.Planets) == 0 {
-		t.Errorf("Expected planets data, got empty slice")
+		t.Fatalf("Expected planets data, got empty slice")
+	}
+
+	// ตรวจสอบฟิลด์ใหม่ใน Planets (คำแปลไทย, ภพ, มาตรฐานดาว)
+	firstPlanet := wrapperResp.CalculateResp.Planets[0]
+	if firstPlanet.NameThai == "" || firstPlanet.Symbol == "" {
+		t.Errorf("Expected Thai name and symbol for planet, got '%s' / '%s'", firstPlanet.NameThai, firstPlanet.Symbol)
+	}
+	if firstPlanet.Dignity == "" || firstPlanet.DignityThai == "" {
+		t.Errorf("Expected dignity fields for planet, got '%s' / '%s'", firstPlanet.Dignity, firstPlanet.DignityThai)
+	}
+	if firstPlanet.House < 1 || firstPlanet.House > 12 || firstPlanet.HouseNameThai == "" {
+		t.Errorf("Expected valid house (1-12) and Thai house name, got %d / '%s'", firstPlanet.House, firstPlanet.HouseNameThai)
+	}
+	if firstPlanet.Position.SignThai == "" {
+		t.Errorf("Expected Position.SignThai to be populated")
 	}
 
 	if len(wrapperResp.CalculateResp.HousesAndAngles) == 0 {
@@ -61,7 +76,38 @@ func TestHandleCalculateHora(t *testing.T) {
 	}
 
 	if len(wrapperResp.CalculateResp.WholeSignHouses) != 12 {
-		t.Errorf("Expected exactly 12 whole sign houses, got %d", len(wrapperResp.CalculateResp.WholeSignHouses))
+		t.Fatalf("Expected exactly 12 whole sign houses, got %d", len(wrapperResp.CalculateResp.WholeSignHouses))
+	}
+
+	// ตรวจสอบฟิลด์เจ้าเรือนภพ (House Lords)
+	firstHouse := wrapperResp.CalculateResp.WholeSignHouses[0]
+	if firstHouse.HouseNameThai != "ตนุ" {
+		t.Errorf("Expected first house Thai name 'ตนุ', got '%s'", firstHouse.HouseNameThai)
+	}
+	if firstHouse.Lord == "" || firstHouse.LordThai == "" {
+		t.Errorf("Expected house lord and Thai lord name, got '%s' / '%s'", firstHouse.Lord, firstHouse.LordThai)
+	}
+	if firstHouse.LordPlacedInHouse < 1 || firstHouse.LordPlacedInHouse > 12 || firstHouse.LordPlacedInHouseThai == "" {
+		t.Errorf("Expected valid lord_placed_in_house (1-12), got %d (%s)", firstHouse.LordPlacedInHouse, firstHouse.LordPlacedInHouseThai)
+	}
+
+	// ตรวจสอบฟิลด์วิมโสตรีทศา (Vimshottari Dasha)
+	dasha := wrapperResp.CalculateResp.VimshottariDasha
+	if dasha.MoonNakshatra == "" || dasha.MoonNakshatraThai == "" {
+		t.Errorf("Expected Moon Nakshatra in VimshottariDasha, got '%s' / '%s'", dasha.MoonNakshatra, dasha.MoonNakshatraThai)
+	}
+	if len(dasha.MahadashaList) != 9 {
+		t.Errorf("Expected 9 Mahadasha items, got %d", len(dasha.MahadashaList))
+	}
+
+	// ทดสอบ Endpoint /api/v1/hora/dasha
+	dashaReq := httptest.NewRequest(http.MethodPost, "/api/v1/hora/dasha", bytes.NewBuffer(jsonBytes))
+	dashaReq.Header.Set("Content-Type", "application/json")
+	dashaRec := httptest.NewRecorder()
+	HandleCalculateDasha(dashaRec, dashaReq)
+
+	if dashaRec.Result().StatusCode != http.StatusOK {
+		t.Errorf("Expected status code %d from /api/v1/hora/dasha, got %d", http.StatusOK, dashaRec.Result().StatusCode)
 	}
 
 	// ทดสอบ Method Not Allowed

@@ -28,6 +28,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/hora/calculate", handler.HandleCalculateHora)
+	mux.HandleFunc("/api/v1/hora/dasha", handler.HandleCalculateDasha)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -75,21 +76,26 @@ func RunHoroscopedebug(resp api.CalculateResp) {
 		if p.IsRetrograde {
 			retroStr = " (R)"
 		}
-		line := fmt.Sprintf("%-20s: %6.2f° (%s)%s | Nakshatra: %s (Pada %d) | Lord: %s",
-			p.Name, p.Longitude, p.PositionStr, retroStr, p.Nakshatra, p.Pada, p.Lord)
+		combustStr := ""
+		if p.IsCombust {
+			combustStr = " [Combust]"
+		}
+		line := fmt.Sprintf("%-20s (%s): %6.2f° (%s)%s%s | House %2d (%s) | Dignity: %s (%s) | Nakshatra: %s (Pada %d) | Lord: %s",
+			p.Name, p.Symbol, p.Longitude, p.PositionStr, retroStr, combustStr, p.House, p.HouseNameThai, p.Dignity, p.DignityThai, p.Nakshatra, p.Pada, p.Lord)
 		planetLogLines = append(planetLogLines, line)
 	}
 
 	houseLogLines := make([]string, 0, len(resp.HousesAndAngles))
 	for _, h := range resp.HousesAndAngles {
-		line := fmt.Sprintf("%-20s: %6.2f° (%s) | Nakshatra: %s (Pada %d) | Lord: %s",
-			h.Name, h.Degree, h.PositionStr, h.Nakshatra, h.Pada, h.Lord)
+		line := fmt.Sprintf("%-20s: %6.2f° (%s) | House %2d (%s) | Nakshatra: %s (Pada %d) | Lord: %s",
+			h.Name, h.Degree, h.PositionStr, h.House, h.HouseNameThai, h.Nakshatra, h.Pada, h.Lord)
 		houseLogLines = append(houseLogLines, line)
 	}
 
 	wholeSignLogLines := make([]string, 0, len(resp.WholeSignHouses))
 	for _, ws := range resp.WholeSignHouses {
-		line := fmt.Sprintf("House %-2d            : Sign %s (0° - 30°)", ws.House, ws.Sign)
+		line := fmt.Sprintf("House %-2d (%-6s) : Sign %-11s (%-5s) | Lord: %-7s (%s) -> Placed in House %d (%s)",
+			ws.House, ws.HouseNameThai, ws.Sign, ws.SignThai, ws.Lord, ws.LordThai, ws.LordPlacedInHouse, ws.LordPlacedInHouseThai)
 		wholeSignLogLines = append(wholeSignLogLines, line)
 	}
 
@@ -104,7 +110,17 @@ func RunHoroscopedebug(resp api.CalculateResp) {
 	sb.WriteString("------------------------------------------------------------------------------------\n")
 	sb.WriteString(strings.Join(houseLogLines, "\n") + "\n\n")
 	sb.WriteString("Whole Sign Houses (1 Sign per House):\n")
-	sb.WriteString(strings.Join(wholeSignLogLines, "\n"))
+	sb.WriteString(strings.Join(wholeSignLogLines, "\n") + "\n\n")
+	sb.WriteString(fmt.Sprintf("Vimshottari Dasha | Moon Nakshatra: %s (%s) | Balance: %s\n",
+		resp.VimshottariDasha.MoonNakshatra, resp.VimshottariDasha.MoonNakshatraThai, resp.VimshottariDasha.BalanceAtBirth))
+	sb.WriteString(fmt.Sprintf("Current Dasha     : Mahadasha %s (%s to %s) | Antardasha %s (%s to %s)",
+		resp.VimshottariDasha.CurrentDasha.MahadashaLordThai,
+		resp.VimshottariDasha.CurrentDasha.MahadashaStart,
+		resp.VimshottariDasha.CurrentDasha.MahadashaEnd,
+		resp.VimshottariDasha.CurrentDasha.AntardashaLordThai,
+		resp.VimshottariDasha.CurrentDasha.AntardashaStart,
+		resp.VimshottariDasha.CurrentDasha.AntardashaEnd,
+	))
 
 	if Log != nil {
 		Log.Info(sb.String())

@@ -12,7 +12,7 @@ func GetNakshatra(lon float64) (NakshatraInfo, int, float64) {
 	if len(nakshatraNames) > 0 && nakIndex >= len(nakshatraNames) {
 		nakIndex = len(nakshatraNames) - 1
 	}
-	// กรณีส่ง 360.0 เข้ามาตรงๆ ให้ถือเป็นปลายนักษัตรที่ 27 (Revati) ตามเดิมหากต้องการ หรือ Normalize
+	// กรณีส่ง 360.0 เข้ามาตรงๆ ให้ถือเป็นปลายนักษัตรที่ 27 (Revati)
 	if lon == 360.0 {
 		nakIndex = 26
 	}
@@ -30,13 +30,16 @@ func GetNakshatra(lon float64) (NakshatraInfo, int, float64) {
 	}
 
 	names := GetNakshatraNames()
+	thaiNames := GetThaiNakshatraNames()
 	lords := GetNakshatraLords()
 	lord := lords[nakIndex%9]
 
 	info := NakshatraInfo{
 		Index:    nakIndex + 1,
 		Name:     names[nakIndex],
+		NameThai: thaiNames[nakIndex],
 		Lord:     lord,
+		LordThai: TranslateLordThai(lord),
 		StartDeg: float64(nakIndex) * span,
 		EndDeg:   float64(nakIndex+1) * span,
 	}

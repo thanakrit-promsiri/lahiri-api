@@ -1,12 +1,20 @@
 {
   "info": {
     "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef0123456789",
-    "name": "Lahiri Astrology API",
+    "name": "Lahiri Vedic Astrology API",
+    "description": "Postman Collection สำหรับทดสอบระบบคำนวณโหราศาสตร์พระเวท (Lahiri Sidereal Zodiac) พร้อมคำแปลภาษาไทย, มาตรฐานดาว (Dignity), ดาวดับ (Combust), เจ้าเรือนภพ (House Lords) และวิมโสตรีทศา (Vimshottari Dasha)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8083",
+      "type": "string"
+    }
+  ],
   "item": [
     {
-      "name": "Calculate Horoscope",
+      "name": "1. Calculate Full Horoscope (ค.ศ.)",
       "request": {
         "method": "POST",
         "header": [
@@ -18,22 +26,174 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"calculateReq\": {\n    \"year\": 2026,\n    \"month\": 10,\n    \"day\": 22,\n    \"hour_thai\": 12.5,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018,\n    \"house_system\": \"W\"\n  }\n}"
+          "raw": "{\n  \"calculateReq\": {\n    \"year\": 1988,\n    \"month\": 12,\n    \"day\": 23,\n    \"hour_thai\": 10.35,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018,\n    \"house_system\": \"W\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
         },
         "url": {
-          "raw": "http://localhost:8080/api/v1/hora/calculate",
-          "protocol": "http",
+          "raw": "{{base_url}}/api/v1/hora/calculate",
           "host": [
-            "localhost"
+            "{{base_url}}"
           ],
-          "port": "8080",
           "path": [
             "api",
             "v1",
             "hora",
             "calculate"
           ]
+        },
+        "description": "คำนวณดวงชะตาพระเวทแบบเต็มรูปแบบ: ตำแหน่งดาว (D1), นวางศ์ (D9), นักษัตรฤกษ์ 27, มาตรฐานดาว (อุจจ์/เกษตร/นิจ/มิตร/ศัตรู), ดาวดับ (Combust), ภพและเจ้าเรือนภพทั้ง 12 (Whole Sign Houses) พร้อมวิมโสตรีทศา (Vimshottari Dasha)"
+      },
+      "response": [
+        {
+          "name": "200 OK - Full Horoscope Sample",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"calculateReq\": {\n    \"year\": 1988,\n    \"month\": 12,\n    \"day\": 23,\n    \"hour_thai\": 10.35,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018,\n    \"house_system\": \"W\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/hora/calculate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "hora",
+                "calculate"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"calculateResp\": {\n    \"metadata\": {\n      \"julian_day\": 2447518.6395833334,\n      \"ayanamsa_name\": \"Lahiri\",\n      \"ayanamsa_degrees\": \"23° 42' 11.19\\\"\",\n      \"location\": {\n        \"latitude\": 13.7563,\n        \"longitude\": 100.5018\n      }\n    },\n    \"planets\": [\n      {\n        \"name\": \"Sun\",\n        \"name_thai\": \"อาทิตย์\",\n        \"symbol\": \"๑\",\n        \"longitude\": 247.81760750913824,\n        \"position_string\": \"Sagittarius ( 7° 49' 03.39\\\")\",\n        \"degree_formatted\": \"07° 49' 03\\\"\",\n        \"position\": {\n          \"sign\": \"Sagittarius\",\n          \"sign_thai\": \"ธนู\",\n          \"degree\": 7,\n          \"minute\": 49,\n          \"second\": 3.387032897669542\n        },\n        \"nakshatra\": \"Mula\",\n        \"nakshatra_thai\": \"มูละ\",\n        \"pada\": 3,\n        \"lord\": \"Ketu\",\n        \"lord_thai\": \"เกตุ (๙)\",\n        \"is_retrograde\": false,\n        \"is_combust\": false,\n        \"dignity\": \"Friend\",\n        \"dignity_thai\": \"มิตร\",\n        \"house\": 11,\n        \"house_name_thai\": \"ลาภะ\",\n        \"house_thai\": \"11 (ลาภะ)\",\n        \"navamsa\": {\n          \"sign\": \"Gemini\",\n          \"sign_thai\": \"เมถุน\",\n          \"index\": 3\n        }\n      }\n    ],\n    \"houses_and_angles\": [\n      {\n        \"name\": \"Ascendant (ASC)\",\n        \"name_thai\": \"ลัคนา\",\n        \"symbol\": \"ลั\",\n        \"degree\": 303.6565173849595,\n        \"position_string\": \"Aquarius ( 3° 39' 23.46\\\")\",\n        \"degree_formatted\": \"03° 39' 23\\\"\",\n        \"position\": {\n          \"sign\": \"Aquarius\",\n          \"sign_thai\": \"กุมภ์\",\n          \"degree\": 3,\n          \"minute\": 39,\n          \"second\": 23.46258585419946\n        },\n        \"nakshatra\": \"Dhanishta\",\n        \"nakshatra_thai\": \"ธนิษฐา\",\n        \"pada\": 4,\n        \"lord\": \"Mars\",\n        \"lord_thai\": \"อังคาร (๓)\",\n        \"house\": 1,\n        \"house_name_thai\": \"ตนุ\",\n        \"house_thai\": \"1 (ตนุ)\",\n        \"navamsa\": {\n          \"sign\": \"Scorpio\",\n          \"sign_thai\": \"พิจิก\",\n          \"index\": 2\n        }\n      }\n    ],\n    \"whole_sign_houses\": [\n      {\n        \"house\": 1,\n        \"house_name_thai\": \"ตนุ\",\n        \"sign\": \"Aquarius\",\n        \"sign_thai\": \"กุมภ์\",\n        \"lord\": \"Saturn\",\n        \"lord_thai\": \"เสาร์ (๗)\",\n        \"lord_placed_in_house\": 11,\n        \"lord_placed_in_house_thai\": \"ลาภะ\"\n      }\n    ],\n    \"vimshottari_dasha\": {\n      \"moon_nakshatra\": \"Ardra\",\n      \"moon_nakshatra_thai\": \"อารทรา\",\n      \"balance_at_birth\": \"Rahu 16 ปี 4 เดือน 12 วัน\",\n      \"current_dasha\": {\n        \"mahadasha_lord\": \"Saturn\",\n        \"mahadasha_lord_thai\": \"เสาร์ (๗)\",\n        \"mahadasha_start\": \"2021-04-29\",\n        \"mahadasha_end\": \"2040-04-29\",\n        \"antardasha_lord\": \"Mercury\",\n        \"antardasha_lord_thai\": \"พุธ (๔)\",\n        \"antardasha_start\": \"2024-05-02\",\n        \"antardasha_end\": \"2027-01-10\"\n      },\n      \"mahadasha_list\": [\n        {\n          \"lord\": \"Rahu\",\n          \"lord_thai\": \"ราหู (๘)\",\n          \"start_date\": \"1988-12-23\",\n          \"end_date\": \"2005-04-29\"\n        },\n        {\n          \"lord\": \"Jupiter\",\n          \"lord_thai\": \"พฤหัสบดี (๕)\",\n          \"start_date\": \"2005-04-29\",\n          \"end_date\": \"2021-04-29\"\n        }\n      ]\n    }\n  }\n}"
         }
+      ]
+    },
+    {
+      "name": "2. Calculate Full Horoscope (รองรับปี พ.ศ.)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"calculateReq\": {\n    \"year\": 2531,\n    \"month\": 12,\n    \"day\": 23,\n    \"hour_thai\": 10.35,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018,\n    \"house_system\": \"W\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/hora/calculate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "hora",
+            "calculate"
+          ]
+        },
+        "description": "ทดสอบการส่งปีเป็น พ.ศ. (> 2400) ระบบจะแปลงเป็น ค.ศ. (-543) ให้อัตโนมัติ"
+      },
+      "response": []
+    },
+    {
+      "name": "3. Calculate Vimshottari Dasha Only",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"calculateReq\": {\n    \"year\": 1988,\n    \"month\": 12,\n    \"day\": 23,\n    \"hour_thai\": 10.35,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018,\n    \"house_system\": \"W\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/hora/dasha",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "hora",
+            "dasha"
+          ]
+        },
+        "description": "คำนวณเฉพาะวิมโสตรีทศา (Vimshottari Dasha 120 ปี) มหาทศาและอันตรทศาปัจจุบัน"
+      },
+      "response": []
+    },
+    {
+      "name": "4. Validation Error Example (400 Bad Request)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"calculateReq\": {\n    \"year\": 2026,\n    \"month\": 15,\n    \"day\": 23,\n    \"hour_thai\": 12.0,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/hora/calculate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "hora",
+            "calculate"
+          ]
+        },
+        "description": "ทดสอบกรณีส่งค่าพารามิเตอร์ไม่ถูกต้อง (เช่น month = 15) ระบบจะตอบกลับด้วย 400 Bad Request ในรูปแบบ JSON มาตรฐาน"
       },
       "response": []
     }

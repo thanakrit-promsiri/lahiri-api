@@ -1,6 +1,9 @@
 package calculator
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // ==========================================
 // 2. Core Calculation & Math Functions
@@ -28,17 +31,35 @@ func NormalizeAngle(val float64) float64 {
 	return val
 }
 
+// AngularDistance คำนวณระยะห่างเชิงมุมที่สั้นที่สุดระหว่างลองจิจูด 2 ค่า (0 - 180 องศา)
+func AngularDistance(lon1, lon2 float64) float64 {
+	diff := math.Abs(NormalizeAngle(lon1) - NormalizeAngle(lon2))
+	if diff > 180.0 {
+		diff = 360.0 - diff
+	}
+	return diff
+}
+
 // ==========================================
 // 3. Formatting Functions
 // ==========================================
 
-// FormatDMS แปลงค่าองศบทศนิยมให้เป็น องศา°, ลิปดา', ฟิลิปดา" (ละเอียดถึงฟิลิปดา)
+// FormatDMS แปลงค่าองศาทศนิยมให้เป็น องศา°, ลิปดา', ฟิลิปดา" (ละเอียดถึงฟิลิปดา)
 func FormatDMS(decimalDegree float64) string {
 	deg := int(decimalDegree)
 	sub := (decimalDegree - float64(deg)) * 60
 	min := int(sub)
 	sec := (sub - float64(min)) * 60
 	return fmt.Sprintf("%2d° %2d' %05.2f\"", deg, min, sec)
+}
+
+// FormatDegreeShort แปลง PositionDetail ให้เป็นรูปแบบกระชับ เช่น "07° 49' 03\""
+func FormatDegreeShort(pos PositionDetail) string {
+	sec := int(math.Round(pos.Second))
+	if sec == 60 {
+		sec = 59
+	}
+	return fmt.Sprintf("%02d° %02d' %02d\"", pos.Degree, pos.Minute, sec)
 }
 
 // FormatSignDMS แปลงองศาเต็มระบบราศี ให้เป็น ชื่อราศี + องศา° ลิปดา' ฟิลิปดา"
@@ -52,9 +73,10 @@ func FormatSignDMS(lon float64, signs []string) string {
 // 4. Domain & Helper Functions
 // ==========================================
 
-// ParsePositionDetail แปลงค่าลองจิจูดเป็นรายละเอียดปลีกย่อย (ราศี, องศา, ลิปดา, ฟิลิปดา)
+// ParsePositionDetail แปลงค่าลองจิจูดเป็นรายละเอียดปลีกย่อย (ราศีอังกฤษ, ราศีไทย, องศา, ลิปดา, ฟิลิปดา)
 func ParsePositionDetail(lon float64) PositionDetail {
 	englishSigns := GetEnglishSigns()
+	thaiSigns := GetThaiZodiacSigns()
 	normalizedLon := NormalizeAngle(lon)
 
 	signIdx, degInSign := ParseLongitude(normalizedLon)
@@ -64,14 +86,17 @@ func ParsePositionDetail(lon float64) PositionDetail {
 	sec := (minFloat - float64(min)) * 60.0
 
 	signName := ""
+	signThai := ""
 	if signIdx >= 0 && signIdx < len(englishSigns) {
 		signName = englishSigns[signIdx]
+		signThai = thaiSigns[signIdx]
 	}
 
 	return PositionDetail{
-		Sign:   signName,
-		Degree: deg,
-		Minute: min,
-		Second: sec,
+		Sign:     signName,
+		SignThai: signThai,
+		Degree:   deg,
+		Minute:   min,
+		Second:   sec,
 	}
 }

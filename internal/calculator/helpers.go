@@ -57,9 +57,9 @@ var defaultPlanets = []PlanetConfig{
 	{swephgo.SeMars, "Mars"},
 	{swephgo.SeJupiter, "Jupiter"},
 	{swephgo.SeSaturn, "Saturn"},
-	{swephgo.SeUranus, "Uranus"},
-	{swephgo.SeNeptune, "Neptune"},
-	{swephgo.SePluto, "Pluto"},
+	// {swephgo.SeUranus, "Uranus"},
+	// {swephgo.SeNeptune, "Neptune"},
+	// {swephgo.SePluto, "Pluto"},
 	{swephgo.SeMeanNode, "Rahu (Mean Node)"},
 }
 
