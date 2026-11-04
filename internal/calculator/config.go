@@ -6,6 +6,43 @@ var (
 		"Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
 	}
 
+	shortZodiacSigns = map[string]string{
+		"Aries":       "Ar",
+		"Taurus":      "Ta",
+		"Gemini":      "Ge",
+		"Cancer":      "Cn",
+		"Leo":         "Le",
+		"Virgo":       "Vi",
+		"Libra":       "Li",
+		"Scorpio":     "Sc",
+		"Sagittarius": "Sg",
+		"Capricorn":   "Cp",
+		"Aquarius":    "Aq",
+		"Pisces":      "Pi",
+	}
+
+	shortPlanetCodes = map[string]string{
+		"Sun":               "Su",
+		"Moon":              "Mo",
+		"Mars":              "Ma",
+		"Mercury":           "Me",
+		"Jupiter":           "Ju",
+		"Venus":             "Ve",
+		"Saturn":            "Sa",
+		"Rahu (Mean Node)":  "Ra",
+		"Rahu (True Node)":  "Ra",
+		"Rahu":              "Ra",
+		"Ketu (Calculated)": "Ke",
+		"Ketu":              "Ke",
+		"Uranus":            "Ur",
+		"Neptune":           "Ne",
+		"Pluto":             "Pl",
+		"Ascendant (ASC)":   "ASC",
+		"Midheaven (MC)":    "MC",
+		"Descendant (DSC)":  "DSC",
+		"Imum Coeli (IC)":   "IC",
+	}
+
 	thaiZodiacSigns = []string{
 		"เมษ", "พฤษภ", "เมถุน", "กรกฎ", "สิงห์", "กันย์",
 		"ตุลย์", "พิจิก", "ธนู", "มังกร", "กุมภ์", "มีน",
@@ -72,9 +109,9 @@ var (
 		"Neptune":           {NameThai: "เนปจูน", Symbol: "Ne", Canonical: "Neptune"},
 		"Pluto":             {NameThai: "พลูโต", Symbol: "Pl", Canonical: "Pluto"},
 		"Ascendant (ASC)":   {NameThai: "ลัคนา", Symbol: "ลั", Canonical: "ASC"},
-		"Midheaven (MC)":    {NameThai: "เมษูรณ์ (MC)", Symbol: "MC", Canonical: "MC"},
-		"Descendant (DSC)":  {NameThai: "ขอบฟ้าตก (DSC)", Symbol: "DSC", Canonical: "DSC"},
-		"Imum Coeli (IC)":   {NameThai: "จุดใต้เท้า (IC)", Symbol: "IC", Canonical: "IC"},
+		"Midheaven (MC)":    {NameThai: "มัธยลัคนา", Symbol: "MC", Canonical: "MC"},
+		"Descendant (DSC)":  {NameThai: "อัสตลัคนา", Symbol: "DSC", Canonical: "DSC"},
+		"Imum Coeli (IC)":   {NameThai: "ปาตาลลัคนา", Symbol: "IC", Canonical: "IC"},
 	}
 
 	lordThaiMap = map[string]string{
@@ -175,3 +212,50 @@ func TranslateNakshatraThai(nakName string) string {
 	}
 	return nakName
 }
+
+// ShortSignCode คืนค่ารหัสย่อราศี 2 ตัวอักษร (เช่น Aries -> Ar, Sagittarius -> Sg)
+func ShortSignCode(signName string) string {
+	if code, ok := shortZodiacSigns[signName]; ok {
+		return code
+	}
+	return signName
+}
+
+// ShortPlanetCode คืนค่ารหัสย่อดาว 2 ตัวอักษร (เช่น Sun -> Su, Jupiter -> Ju)
+func ShortPlanetCode(name string) string {
+	if code, ok := shortPlanetCodes[name]; ok {
+		return code
+	}
+	return name
+}
+
+// ShortNakshatraName ย่อคำว่า Purva -> P. และ Uttara -> U. เพื่อประหยัด Token
+func ShortNakshatraName(nakName string) string {
+	switch nakName {
+	case "Purva Phalguni":
+		return "P.Phalguni"
+	case "Uttara Phalguni":
+		return "U.Phalguni"
+	case "Purva Ashadha":
+		return "P.Ashadha"
+	case "Uttara Ashadha":
+		return "U.Ashadha"
+	case "Purva Bhadrapada":
+		return "P.Bhadra"
+	case "Uttara Bhadrapada":
+		return "U.Bhadra"
+	default:
+		return nakName
+	}
+}
+
+// GetSignIndexByName คืนค่า index ของราศี (0-11) จากชื่อราศีภาษาอังกฤษ
+func GetSignIndexByName(signName string) int {
+	for i, s := range zodiacSigns {
+		if s == signName {
+			return i
+		}
+	}
+	return -1
+}
+

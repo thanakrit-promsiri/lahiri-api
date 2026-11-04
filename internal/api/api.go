@@ -46,6 +46,11 @@ func HandleCalculateDasha(w http.ResponseWriter, r *http.Request) {
 	NewHandler(Log, nil).HandleCalculateDasha(w, r)
 }
 
+// HandleCalculatePrompt เป็นฟังก์ชันระดับ Package สำหรับสร้างข้อความ Roman Ultra-Compact สำหรับป้อน AI
+func HandleCalculatePrompt(w http.ResponseWriter, r *http.Request) {
+	NewHandler(Log, nil).HandleCalculatePrompt(w, r)
+}
+
 // normalizeReq ปรับค่าเริ่มต้น เช่น แปลงปี พ.ศ. เป็น ค.ศ. อัตโนมัติหากเกิน 2400
 func normalizeReq(req *CalculateReq) {
 	if req.Year > 2400 {
@@ -56,38 +61,8 @@ func normalizeReq(req *CalculateReq) {
 	}
 }
 
-// HandleCalculateHora ประมวลผลคำขอคำนวณดวงชะตาแบบครบวงจร (ดาว, ภพ, มาตรฐานดาว, ดาวดับ, เจ้าเรือนภพ, วิมโสตรีทศา)
-func (h *Handler) HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		h.logger.Warn("Invalid HTTP method attempted", zap.String("method", r.Method))
-		writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	var reqWrapper CalculateWrapperReq
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&reqWrapper); err != nil {
-		h.logger.Error("Failed to decode request body", zap.Error(err))
-		writeJSONError(w, http.StatusBadRequest, "Invalid JSON payload: "+err.Error())
-		return
-	}
-
-	req := reqWrapper.CalculateReq
-	normalizeReq(&req)
-	if err := req.Validate(); err != nil {
-		h.logger.Warn("Invalid request parameters", zap.Error(err))
-		writeJSONError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	h.logger.Info("Received API calculation request",
-		zap.Int("year", req.Year),
-		zap.Int("month", req.Month),
-		zap.Int("day", req.Day),
-		zap.Float64("latitude", req.Latitude),
-		zap.Float64("longitude", req.Longitude),
-	)
-
+// computeHoroscope คำนวณข้อมูลดวงชะตาพระเวททั้งหมดเพื่อใช้ร่วมกันระหว่างหลาย Endpoint
+func computeHoroscope(req CalculateReq) CalculateResp {
 	jd, ayanamsa := calculator.ComputeJulianDayAndAyanamsa(
 		req.Year, req.Month, req.Day, req.HourThai, req.TimeZone,
 	)
@@ -113,7 +88,6 @@ func (h *Handler) HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 	// 2. คำนวณตำแหน่งดาว (Planets) พร้อมมาตรฐานดาว (Dignity), ดาวดับ (Combust) และภพที่สถิต
 	planetRes := calculator.CalculatePlanets(jd, flag, signs)
 
-	// ค้นหาลองจิจูดของดวงอาทิตย์ (เพื่อเช็คดาวดับ) และดวงจันทร์ (เพื่อคำนวณวิมโสตรีทศา)
 	var sunLon, moonLon float64
 	for _, p := range planetRes {
 		if p.Name == "Sun" {
@@ -123,7 +97,6 @@ func (h *Handler) HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// เก็บข้อมูลว่าดาวแต่ละดวง (Canonical Name) สถิตอยู่ในภพที่เท่าไหร่ เพื่อนำไปผูกกับเจ้าเรือนภพ (Whole Sign Houses)
 	planetHouseMap := make(map[string]int, len(planetRes))
 
 	apiPlanets := make([]ApiPlanet, 0, len(planetRes))
@@ -225,7 +198,7 @@ func (h *Handler) HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 		moonLon, req.Year, req.Month, req.Day, req.HourThai, req.TimeZone, time.Now(),
 	)
 
-	calcResp := CalculateResp{
+	return CalculateResp{
 		Metadata: ApiMetadata{
 			JulianDay:       jd,
 			AyanamsaName:    "Lahiri",
@@ -240,6 +213,50 @@ func (h *Handler) HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 		WholeSignHouses:  apiWholeSigns,
 		VimshottariDasha: dasha,
 	}
+}
+
+// decodeAndValidateReq อ่านและตรวจสอบความถูกต้องของ Request
+func (h *Handler) decodeAndValidateReq(w http.ResponseWriter, r *http.Request) (CalculateReq, bool) {
+	if r.Method != http.MethodPost {
+		h.logger.Warn("Invalid HTTP method attempted", zap.String("method", r.Method))
+		writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return CalculateReq{}, false
+	}
+
+	var reqWrapper CalculateWrapperReq
+	if err := json.NewDecoder(r.Body).Decode(&reqWrapper); err != nil {
+		h.logger.Error("Failed to decode request body", zap.Error(err))
+		writeJSONError(w, http.StatusBadRequest, "Invalid JSON payload: "+err.Error())
+		return CalculateReq{}, false
+	}
+
+	req := reqWrapper.CalculateReq
+	normalizeReq(&req)
+	if err := req.Validate(); err != nil {
+		h.logger.Warn("Invalid request parameters", zap.Error(err))
+		writeJSONError(w, http.StatusBadRequest, err.Error())
+		return CalculateReq{}, false
+	}
+
+	return req, true
+}
+
+// HandleCalculateHora ประมวลผลคำขอคำนวณดวงชะตาแบบครบวงจร (POST /api/v1/hora/calculate)
+func (h *Handler) HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
+	req, ok := h.decodeAndValidateReq(w, r)
+	if !ok {
+		return
+	}
+
+	h.logger.Info("Received API calculation request",
+		zap.Int("year", req.Year),
+		zap.Int("month", req.Month),
+		zap.Int("day", req.Day),
+		zap.Float64("latitude", req.Latitude),
+		zap.Float64("longitude", req.Longitude),
+	)
+
+	calcResp := computeHoroscope(req)
 
 	if h.onResult != nil {
 		h.onResult(calcResp)
@@ -258,24 +275,8 @@ func (h *Handler) HandleCalculateHora(w http.ResponseWriter, r *http.Request) {
 
 // HandleCalculateDasha ประมวลผลเฉพาะวิมโสตรีทศา (POST /api/v1/hora/dasha)
 func (h *Handler) HandleCalculateDasha(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		h.logger.Warn("Invalid HTTP method attempted on dasha endpoint", zap.String("method", r.Method))
-		writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	var reqWrapper CalculateWrapperReq
-	if err := json.NewDecoder(r.Body).Decode(&reqWrapper); err != nil {
-		h.logger.Error("Failed to decode request body", zap.Error(err))
-		writeJSONError(w, http.StatusBadRequest, "Invalid JSON payload: "+err.Error())
-		return
-	}
-
-	req := reqWrapper.CalculateReq
-	normalizeReq(&req)
-	if err := req.Validate(); err != nil {
-		h.logger.Warn("Invalid request parameters", zap.Error(err))
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+	req, ok := h.decodeAndValidateReq(w, r)
+	if !ok {
 		return
 	}
 
@@ -307,6 +308,40 @@ func (h *Handler) HandleCalculateDasha(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Error("Failed to encode dasha response JSON", zap.Error(err))
+	}
+}
+
+// HandleCalculatePrompt ประมวลผลและคืนค่าข้อความดวงชะตาแบบ Roman Ultra-Compact สำหรับป้อน AI (POST /api/v1/hora/prompt)
+// รองรับ ?format=raw หรือ Header Accept: text/plain เพื่อรับเป็น Plain Text ทันที หรือรับเป็น JSON {"status":"success","prompt":"..."}
+func (h *Handler) HandleCalculatePrompt(w http.ResponseWriter, r *http.Request) {
+	req, ok := h.decodeAndValidateReq(w, r)
+	if !ok {
+		return
+	}
+
+	h.logger.Info("Received AI prompt generation request",
+		zap.Int("year", req.Year),
+		zap.Int("month", req.Month),
+		zap.Int("day", req.Day),
+	)
+
+	calcResp := computeHoroscope(req)
+	promptText := FormatRomanCompactPrompt(calcResp)
+
+	if r.URL.Query().Get("format") == "raw" || r.Header.Get("Accept") == "text/plain" {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write([]byte(promptText))
+		return
+	}
+
+	resp := PromptWrapperResp{
+		Status: "success",
+		Prompt: promptText,
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		h.logger.Error("Failed to encode prompt response JSON", zap.Error(err))
 	}
 }
 

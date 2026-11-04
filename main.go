@@ -29,6 +29,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/hora/calculate", handler.HandleCalculateHora)
 	mux.HandleFunc("/api/v1/hora/dasha", handler.HandleCalculateDasha)
+	mux.HandleFunc("/api/v1/hora/prompt", handler.HandleCalculatePrompt)
 
 	port := os.Getenv("PORT")
 	if port == "" {

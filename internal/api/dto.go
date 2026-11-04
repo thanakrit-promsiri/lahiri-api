@@ -71,6 +71,11 @@ type DashaWrapperResp struct {
 	VimshottariDasha calculator.VimshottariDasha `json:"vimshottari_dasha"`
 }
 
+type PromptWrapperResp struct {
+	Status string `json:"status"`
+	Prompt string `json:"prompt"`
+}
+
 type ApiMetadata struct {
 	JulianDay       float64     `json:"julian_day"`
 	AyanamsaName    string      `json:"ayanamsa_name"`

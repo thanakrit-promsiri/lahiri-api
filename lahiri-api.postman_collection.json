@@ -162,7 +162,43 @@
       "response": []
     },
     {
-      "name": "4. Validation Error Example (400 Bad Request)",
+      "name": "4. Generate AI Prompt (Roman Ultra-Compact JSON)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"calculateReq\": {\n    \"year\": 1988,\n    \"month\": 12,\n    \"day\": 23,\n    \"hour_thai\": 10.35,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018,\n    \"house_system\": \"W\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/hora/prompt",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "hora",
+            "prompt"
+          ]
+        },
+        "description": "สร้างข้อความดวงชะตาพระเวทแบบ Roman Ultra-Compact (รวมมาตรฐานดาว D1 และ D9, แท็ก Vargottama, เจ้าเรือนภพ, ดาวกุมกัน และทศาปัจจุบัน) สำหรับป้อนให้ AI พยากรณ์โดยประหยัด Token สูงสุด (หากต้องการ Plain Text ทันทีให้เติม ?format=raw)"
+      },
+      "response": []
+    },
+    {
+      "name": "5. Validation Error Example (400 Bad Request)",
       "request": {
         "method": "POST",
         "header": [

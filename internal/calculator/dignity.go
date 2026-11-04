@@ -184,6 +184,143 @@ func CalculateDignity(planetName string, lon float64) (dignityEng string, dignit
 	return "Neutral", "ปกติ"
 }
 
+// CalculateSignDignity คำนวณมาตรฐานดาวตามราศี (ใช้สำหรับกระดาน D9 หรือราศีที่ไม่มีการแบ่งองศาย่อย)
+func CalculateSignDignity(planetName string, signIdx int) (dignityEng string, dignityThai string) {
+	_, _, canonical := TranslateBodyInfo(planetName)
+
+	switch canonical {
+	case "Uranus", "Neptune", "Pluto":
+		return "Neutral", "ปกติ"
+	case "Rahu":
+		switch signIdx {
+		case 1:
+			return "Exalted", "อุจจ์"
+		case 2:
+			return "Moolatrikona", "มูลไตรโกณ"
+		case 10:
+			return "Own Sign", "เกษตร"
+		case 7:
+			return "Debilitated", "นิจ"
+		default:
+			return "Neutral", "ปกติ"
+		}
+	case "Ketu":
+		switch signIdx {
+		case 7:
+			return "Exalted", "อุจจ์"
+		case 8:
+			return "Moolatrikona", "มูลไตรโกณ"
+		case 1:
+			return "Debilitated", "นิจ"
+		default:
+			return "Neutral", "ปกติ"
+		}
+	case "Sun":
+		if signIdx == 0 {
+			return "Exalted", "อุจจ์"
+		}
+		if signIdx == 6 {
+			return "Debilitated", "นิจ"
+		}
+		if signIdx == 4 {
+			return "Own Sign", "เกษตร"
+		}
+	case "Moon":
+		if signIdx == 1 {
+			return "Exalted", "อุจจ์"
+		}
+		if signIdx == 7 {
+			return "Debilitated", "นิจ"
+		}
+		if signIdx == 3 {
+			return "Own Sign", "เกษตร"
+		}
+	case "Mars":
+		if signIdx == 9 {
+			return "Exalted", "อุจจ์"
+		}
+		if signIdx == 3 {
+			return "Debilitated", "นิจ"
+		}
+		if signIdx == 0 || signIdx == 7 {
+			return "Own Sign", "เกษตร"
+		}
+	case "Mercury":
+		if signIdx == 5 {
+			return "Exalted", "อุจจ์"
+		}
+		if signIdx == 11 {
+			return "Debilitated", "นิจ"
+		}
+		if signIdx == 2 {
+			return "Own Sign", "เกษตร"
+		}
+	case "Jupiter":
+		if signIdx == 3 {
+			return "Exalted", "อุจจ์"
+		}
+		if signIdx == 9 {
+			return "Debilitated", "นิจ"
+		}
+		if signIdx == 8 || signIdx == 11 {
+			return "Own Sign", "เกษตร"
+		}
+	case "Venus":
+		if signIdx == 11 {
+			return "Exalted", "อุจจ์"
+		}
+		if signIdx == 5 {
+			return "Debilitated", "นิจ"
+		}
+		if signIdx == 1 || signIdx == 6 {
+			return "Own Sign", "เกษตร"
+		}
+	case "Saturn":
+		if signIdx == 6 {
+			return "Exalted", "อุจจ์"
+		}
+		if signIdx == 0 {
+			return "Debilitated", "นิจ"
+		}
+		if signIdx == 9 || signIdx == 10 {
+			return "Own Sign", "เกษตร"
+		}
+	}
+
+	dispositor := GetSignLord(signIdx)
+	if dispositor == "" {
+		return "Neutral", "ปกติ"
+	}
+	if friends, ok := naturalFriends[canonical]; ok && friends[dispositor] {
+		return "Friend", "มิตร"
+	}
+	if enemies, ok := naturalEnemies[canonical]; ok && enemies[dispositor] {
+		return "Enemy", "ศัตรู"
+	}
+
+	return "Neutral", "ปกติ"
+}
+
+// ShortDignityCode แปลงชื่อมาตรฐานดาวภาษาอังกฤษเป็นรหัสย่อ 3-4 ตัวอักษรสำหรับ AI Prompt
+func ShortDignityCode(dignityEng string) string {
+	switch dignityEng {
+	case "Exalted":
+		return "Exa"
+	case "Moolatrikona":
+		return "Mool"
+	case "Own Sign":
+		return "Own"
+	case "Friend":
+		return "Fri"
+	case "Enemy":
+		return "Ene"
+	case "Debilitated":
+		return "Deb"
+	default:
+		return "Neu"
+	}
+}
+
 // IsPlanetCombust ตรวจสอบภาวะดาวดับ/อัสดงคต (Combustion / Asta) เมื่อโคจรเข้าใกล้ดวงอาทิตย์ตามเกณฑ์องศาพระเวท
 func IsPlanetCombust(planetName string, planetLon, sunLon float64, isRetro bool) bool {
 	_, _, canonical := TranslateBodyInfo(planetName)

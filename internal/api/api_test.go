@@ -110,6 +110,36 @@ func TestHandleCalculateHora(t *testing.T) {
 		t.Errorf("Expected status code %d from /api/v1/hora/dasha, got %d", http.StatusOK, dashaRec.Result().StatusCode)
 	}
 
+	// ทดสอบ Endpoint /api/v1/hora/prompt (JSON format)
+	promptReq := httptest.NewRequest(http.MethodPost, "/api/v1/hora/prompt", bytes.NewBuffer(jsonBytes))
+	promptReq.Header.Set("Content-Type", "application/json")
+	promptRec := httptest.NewRecorder()
+	HandleCalculatePrompt(promptRec, promptReq)
+
+	if promptRec.Result().StatusCode != http.StatusOK {
+		t.Errorf("Expected status code %d from /api/v1/hora/prompt, got %d", http.StatusOK, promptRec.Result().StatusCode)
+	}
+	var promptResp PromptWrapperResp
+	if err := json.NewDecoder(promptRec.Result().Body).Decode(&promptResp); err != nil {
+		t.Fatalf("Failed to decode prompt response JSON: %v", err)
+	}
+	if promptResp.Status != "success" || promptResp.Prompt == "" {
+		t.Errorf("Expected non-empty Roman prompt, got %+v", promptResp)
+	}
+
+	// ทดสอบ Endpoint /api/v1/hora/prompt?format=raw (Plain Text format)
+	rawPromptReq := httptest.NewRequest(http.MethodPost, "/api/v1/hora/prompt?format=raw", bytes.NewBuffer(jsonBytes))
+	rawPromptReq.Header.Set("Content-Type", "application/json")
+	rawPromptRec := httptest.NewRecorder()
+	HandleCalculatePrompt(rawPromptRec, rawPromptReq)
+
+	if rawPromptRec.Result().StatusCode != http.StatusOK {
+		t.Errorf("Expected status code %d from /api/v1/hora/prompt?format=raw, got %d", http.StatusOK, rawPromptRec.Result().StatusCode)
+	}
+	if rawPromptRec.Body.Len() == 0 {
+		t.Errorf("Expected non-empty plain text prompt")
+	}
+
 	// ทดสอบ Method Not Allowed
 	getReq := httptest.NewRequest(http.MethodGet, "/api/v1/hora/calculate", nil)
 	getRec := httptest.NewRecorder()

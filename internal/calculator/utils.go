@@ -53,13 +53,9 @@ func FormatDMS(decimalDegree float64) string {
 	return fmt.Sprintf("%2d° %2d' %05.2f\"", deg, min, sec)
 }
 
-// FormatDegreeShort แปลง PositionDetail ให้เป็นรูปแบบกระชับ เช่น "07° 49' 03\""
+// FormatDegreeShort แปลง PositionDetail ให้เป็นรูปแบบกระชับละเอียดถึงฟิลิปดา เช่น "07° 49' 03.39\""
 func FormatDegreeShort(pos PositionDetail) string {
-	sec := int(math.Round(pos.Second))
-	if sec == 60 {
-		sec = 59
-	}
-	return fmt.Sprintf("%02d° %02d' %02d\"", pos.Degree, pos.Minute, sec)
+	return fmt.Sprintf("%02d° %02d' %05.2f\"", pos.Degree, pos.Minute, pos.Second)
 }
 
 // FormatSignDMS แปลงองศาเต็มระบบราศี ให้เป็น ชื่อราศี + องศา° ลิปดา' ฟิลิปดา"
