@@ -65,6 +65,7 @@ type PlanetConfig struct {
 
 // VimshottariDasha เก็บผลลัพธ์การคำนวณวิมโสตรีทศา (120 ปี)
 type VimshottariDasha struct {
+	TargetDate        string          `json:"target_date,omitempty"`
 	MoonNakshatra     string          `json:"moon_nakshatra"`
 	MoonNakshatraThai string          `json:"moon_nakshatra_thai"`
 	BalanceAtBirth    string          `json:"balance_at_birth"`

@@ -126,7 +126,7 @@
       "response": []
     },
     {
-      "name": "3. Calculate Vimshottari Dasha Only",
+      "name": "3. Calculate Vimshottari Dasha (มหาทศา / อันตรทศา / อนุทศา)",
       "request": {
         "method": "POST",
         "header": [
@@ -138,7 +138,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"calculateReq\": {\n    \"year\": 1988,\n    \"month\": 12,\n    \"day\": 23,\n    \"hour_thai\": 10.35,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018,\n    \"house_system\": \"W\"\n  }\n}",
+          "raw": "{\n  \"year\": 1988,\n  \"month\": 12,\n  \"day\": 23,\n  \"hour_thai\": 10.35,\n  \"latitude\": 13.7563,\n  \"longitude\": 100.5018,\n  \"transit_year\": 2026,\n  \"transit_month\": 12\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -157,7 +157,7 @@
             "dasha"
           ]
         },
-        "description": "คำนวณเฉพาะวิมโสตรีทศา (Vimshottari Dasha 120 ปี) มหาทศาและอันตรทศาปัจจุบัน"
+        "description": "คำนวณวิมโสตรีทศา 120 ปี (มหาทศา, อันตรทศา/อนุทศา, และปรัตยันตรทศา) ณ ปีและเดือนจรที่ระบุ (transit_year, transit_month) หรือไม่ระบุเพื่อใช้วันเวลาปัจจุบัน"
       },
       "response": []
     },
@@ -198,7 +198,79 @@
       "response": []
     },
     {
-      "name": "5. Validation Error Example (400 Bad Request)",
+      "name": "5. Calculate Annual Monthly Transits (ดาวจรรายเดือน 12 เดือน)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"year\": 1988,\n  \"month\": 12,\n  \"day\": 23,\n  \"hour_thai\": 10.35,\n  \"latitude\": 13.7563,\n  \"longitude\": 100.5018,\n  \"transit_year\": 2026\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/hora/transit",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "hora",
+            "transit"
+          ]
+        },
+        "description": "คำนวณดาวจรรายเดือนทั้ง 12 เดือน (ณ วันเกิด เวลา และพิกัดเดิมในปีจร) แสดงดาวนวเคราะห์ 9 ดวง (1-อาทิตย์ ถึง 9-เกตุ) โดยเทียบเรือนภพ (Whole Sign) กับราศีลัคนาดวงกำเนิดเป็นเรือนที่ 1"
+      },
+      "response": []
+    },
+    {
+      "name": "6. Calculate Single Month Transit (ดาวจรรายเดือนเฉพาะเดือนที่ระบุ)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"year\": 1988,\n  \"month\": 12,\n  \"day\": 23,\n  \"hour_thai\": 10.35,\n  \"latitude\": 13.7563,\n  \"longitude\": 100.5018,\n  \"transit_year\": 2026,\n  \"transit_month\": 12\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/hora/transitmonth",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "hora",
+            "transitmonth"
+          ]
+        },
+        "description": "คำนวณดาวจรเฉพาะเดือนที่ระบุใน transit_month (ณ วันเกิด เวลา และพิกัดเดิมในปีจร) แสดงดาวนวเคราะห์ 9 ดวง เทียบเรือนภพ (Whole Sign) กับราศีลัคนาดวงกำเนิดเป็นเรือนที่ 1"
+      },
+      "response": []
+    },
+    {
+      "name": "7. Validation Error Example (400 Bad Request)",
       "request": {
         "method": "POST",
         "header": [

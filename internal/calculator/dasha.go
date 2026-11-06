@@ -178,6 +178,7 @@ func CalculateVimshottariDasha(moonLon float64, year, month, day int, hourLocal,
 	}
 
 	return VimshottariDasha{
+		TargetDate:        targetTime.In(loc).Format("02/01/2006"),
 		MoonNakshatra:     nakInfo.Name,
 		MoonNakshatraThai: nakInfo.NameThai,
 		BalanceAtBirth:    formatBalanceThai(firstDasha.Lord, balanceYears),

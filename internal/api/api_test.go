@@ -177,3 +177,213 @@ func TestHandleCalculateHora(t *testing.T) {
 		t.Errorf("Expected status code %d for invalid input parameters, got %d", http.StatusBadRequest, invalidRec.Result().StatusCode)
 	}
 }
+
+func TestHandleCalculateTransit(t *testing.T) {
+	rawInput := `{
+  "year": 1988,
+  "month": 12,
+  "day": 23,
+  "hour_thai": 10.35,
+  "latitude": 13.7563,
+  "longitude": 100.5018,
+  "transit_year": 2026
+}`
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/transit", bytes.NewBufferString(rawInput))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	HandleCalculateTransit(rec, req)
+
+	res := rec.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status code %d, got %d", http.StatusOK, res.StatusCode)
+	}
+
+	var wrapperResp TransitWrapperResp
+	if err := json.NewDecoder(res.Body).Decode(&wrapperResp); err != nil {
+		t.Fatalf("Failed to decode transit response JSON: %v", err)
+	}
+
+	if wrapperResp.Status != "success" {
+		t.Errorf("Expected status 'success', got '%s'", wrapperResp.Status)
+	}
+
+	if len(wrapperResp.MonthlyTransits) != 12 {
+		t.Fatalf("Expected 12 monthly transits, got %d", len(wrapperResp.MonthlyTransits))
+	}
+
+	if wrapperResp.MonthlyTransits[0].Date != "23/01/2026" {
+		t.Errorf("Expected first month date '23/01/2026', got '%s'", wrapperResp.MonthlyTransits[0].Date)
+	}
+	if wrapperResp.MonthlyTransits[11].Date != "23/12/2026" {
+		t.Errorf("Expected last month date '23/12/2026', got '%s'", wrapperResp.MonthlyTransits[11].Date)
+	}
+
+	expectedNames := []string{"Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"}
+	for _, mt := range wrapperResp.MonthlyTransits {
+		if len(mt.Planets) != 9 {
+			t.Fatalf("Month %d: expected 9 Navagraha planets, got %d", mt.Month, len(mt.Planets))
+		}
+		for idx, p := range mt.Planets {
+			if p.No != idx+1 || p.Name != expectedNames[idx] {
+				t.Errorf("Month %d planet %d: expected (%d, %s), got (%d, %s)",
+					mt.Month, idx, idx+1, expectedNames[idx], p.No, p.Name)
+			}
+			if p.House < 1 || p.House > 12 {
+				t.Errorf("Month %d planet %s: invalid house %d", mt.Month, p.Name, p.House)
+			}
+		}
+	}
+}
+
+func TestHandleCalculateTransitMonth(t *testing.T) {
+	rawInput := `{
+  "year": 1988,
+  "month": 12,
+  "day": 23,
+  "hour_thai": 10.35,
+  "latitude": 13.7563,
+  "longitude": 100.5018,
+  "transit_year": 2026,
+  "transit_month": 12
+}`
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/transitmonth", bytes.NewBufferString(rawInput))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	HandleCalculateTransitMonth(rec, req)
+
+	res := rec.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status code %d, got %d", http.StatusOK, res.StatusCode)
+	}
+
+	var wrapperResp TransitMonthWrapperResp
+	if err := json.NewDecoder(res.Body).Decode(&wrapperResp); err != nil {
+		t.Fatalf("Failed to decode transitmonth response JSON: %v", err)
+	}
+
+	if wrapperResp.Status != "success" {
+		t.Errorf("Expected status 'success', got '%s'", wrapperResp.Status)
+	}
+
+	mt := wrapperResp.MonthlyTransit
+	if mt.Month != 12 || mt.Date != "23/12/2026" {
+		t.Errorf("Expected month 12 date '23/12/2026', got month %d date '%s'", mt.Month, mt.Date)
+	}
+
+	expectedNames := []string{"Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"}
+	if len(mt.Planets) != 9 {
+		t.Fatalf("Expected 9 Navagraha planets, got %d", len(mt.Planets))
+	}
+	for idx, p := range mt.Planets {
+		if p.No != idx+1 || p.Name != expectedNames[idx] {
+			t.Errorf("Planet %d: expected (%d, %s), got (%d, %s)",
+				idx, idx+1, expectedNames[idx], p.No, p.Name)
+		}
+		if p.House < 1 || p.House > 12 {
+			t.Errorf("Planet %s: invalid house %d", p.Name, p.House)
+		}
+	}
+}
+
+func TestHandleCalculateDashaWithTransitDate(t *testing.T) {
+	rawInput := `{
+  "year": 1988,
+  "month": 12,
+  "day": 23,
+  "hour_thai": 10.35,
+  "latitude": 13.7563,
+  "longitude": 100.5018,
+  "transit_year": 2026,
+  "transit_month": 12
+}`
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/dasha", bytes.NewBufferString(rawInput))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	HandleCalculateDasha(rec, req)
+
+	res := rec.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status code %d, got %d", http.StatusOK, res.StatusCode)
+	}
+
+	var wrapperResp DashaWrapperResp
+	if err := json.NewDecoder(res.Body).Decode(&wrapperResp); err != nil {
+		t.Fatalf("Failed to decode dasha response JSON: %v", err)
+	}
+
+	if wrapperResp.Status != "success" {
+		t.Errorf("Expected status 'success', got '%s'", wrapperResp.Status)
+	}
+
+	d := wrapperResp.VimshottariDasha
+	if d.TargetDate != "23/12/2026" {
+		t.Errorf("Expected target_date '23/12/2026', got '%s'", d.TargetDate)
+	}
+	if d.CurrentDasha.MahadashaLord == "" || d.CurrentDasha.AntardashaLord == "" || d.CurrentDasha.PratyantardashaLord == "" {
+		t.Errorf("Expected Mahadasha, Antardasha, and Pratyantardasha lords to be populated, got %+v", d.CurrentDasha)
+	}
+}
+
+func TestEndOfMonthTransitDates(t *testing.T) {
+	// ทดสอบกรณีคนเกิดวันที่ 31 (สิ้นเดือน) ในปีปกติ (2026) และปีอธิกสุรทิน Leap Year (2028)
+	rawInput2026 := `{
+  "year": 1988,
+  "month": 12,
+  "day": 31,
+  "hour_thai": 10.35,
+  "latitude": 13.7563,
+  "longitude": 100.5018,
+  "transit_year": 2026
+}`
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/transit", bytes.NewBufferString(rawInput2026))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	HandleCalculateTransit(rec, req)
+
+	var resp2026 TransitWrapperResp
+	if err := json.NewDecoder(rec.Result().Body).Decode(&resp2026); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	expectedDates2026 := []string{
+		"31/01/2026", "28/02/2026", "31/03/2026", "30/04/2026",
+		"31/05/2026", "30/06/2026", "31/07/2026", "31/08/2026",
+		"30/09/2026", "31/10/2026", "30/11/2026", "31/12/2026",
+	}
+	for i, exp := range expectedDates2026 {
+		if resp2026.MonthlyTransits[i].Date != exp {
+			t.Errorf("Month %d: expected '%s', got '%s'", i+1, exp, resp2026.MonthlyTransits[i].Date)
+		}
+	}
+
+	// ทดสอบปีอธิกสุรทิน (Leap Year 2028 -> ก.พ. ต้องได้ 29/02/2028)
+	rawInput2028 := `{
+  "year": 1988,
+  "month": 12,
+  "day": 31,
+  "hour_thai": 10.35,
+  "latitude": 13.7563,
+  "longitude": 100.5018,
+  "transit_year": 2028,
+  "transit_month": 2
+}`
+	reqLeap := httptest.NewRequest(http.MethodPost, "/api/v1/hora/transitmonth", bytes.NewBufferString(rawInput2028))
+	reqLeap.Header.Set("Content-Type", "application/json")
+	recLeap := httptest.NewRecorder()
+	HandleCalculateTransitMonth(recLeap, reqLeap)
+
+	var respLeap TransitMonthWrapperResp
+	if err := json.NewDecoder(recLeap.Result().Body).Decode(&respLeap); err != nil {
+		t.Fatalf("Failed to decode leap year response: %v", err)
+	}
+	if respLeap.MonthlyTransit.Date != "29/02/2028" {
+		t.Errorf("Expected leap year Feb date '29/02/2028', got '%s'", respLeap.MonthlyTransit.Date)
+	}
+}
