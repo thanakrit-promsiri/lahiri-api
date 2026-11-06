@@ -132,6 +132,29 @@ func CalculateVimshottariDasha(moonLon float64, year, month, day int, hourLocal,
 					currentDasha.AntardashaLordThai = TranslateLordThai(antar.Lord)
 					currentDasha.AntardashaStart = displayAntarStart.Format("2006-01-02")
 					currentDasha.AntardashaEnd = antarEnd.Format("2006-01-02")
+
+					// คำนวณปรัตยันตรทศา (Pratyantardasha: ระดับที่ 3)
+					pratyCursor := antarCursor
+					for k := 0; k < 9; k++ {
+						pratyIdx := (antarIdx + k) % 9
+						praty := dashaSequence[pratyIdx]
+						// สูตรระยะเวลาปรัตยันตรทศา = (ปีมหาทศา * ปีอันตรทศา * ปีปรัตยันตรทศา) / (120 * 120)
+						pratyYears := (maha.Years * antar.Years * praty.Years) / (120.0 * 120.0)
+						pratyEnd := addYearsToTime(pratyCursor, pratyYears)
+
+						if !targetTime.Before(pratyCursor) && targetTime.Before(pratyEnd) {
+							displayPratyStart := pratyCursor
+							if displayPratyStart.Before(birthTime) {
+								displayPratyStart = birthTime
+							}
+							currentDasha.PratyantardashaLord = praty.Lord
+							currentDasha.PratyantardashaLordThai = TranslateLordThai(praty.Lord)
+							currentDasha.PratyantardashaStart = displayPratyStart.Format("2006-01-02")
+							currentDasha.PratyantardashaEnd = pratyEnd.Format("2006-01-02")
+							break
+						}
+						pratyCursor = pratyEnd
+					}
 					break
 				}
 				antarCursor = antarEnd

@@ -72,16 +72,20 @@ type VimshottariDasha struct {
 	MahadashaList     []MahadashaItem `json:"mahadasha_list"`
 }
 
-// CurrentDasha เก็บข้อมูลมหาทศาและอันตรทศาในเวลาปัจจุบัน
+// CurrentDasha เก็บข้อมูลมหาทศา อันตรทศา และปรัตยันตรทศาในเวลาปัจจุบัน
 type CurrentDasha struct {
-	MahadashaLord      string `json:"mahadasha_lord"`
-	MahadashaLordThai  string `json:"mahadasha_lord_thai"`
-	MahadashaStart     string `json:"mahadasha_start"`
-	MahadashaEnd       string `json:"mahadasha_end"`
-	AntardashaLord     string `json:"antardasha_lord"`
-	AntardashaLordThai string `json:"antardasha_lord_thai"`
-	AntardashaStart    string `json:"antardasha_start"`
-	AntardashaEnd      string `json:"antardasha_end"`
+	MahadashaLord         string `json:"mahadasha_lord"`
+	MahadashaLordThai     string `json:"mahadasha_lord_thai"`
+	MahadashaStart        string `json:"mahadasha_start"`
+	MahadashaEnd          string `json:"mahadasha_end"`
+	AntardashaLord        string `json:"antardasha_lord"`
+	AntardashaLordThai    string `json:"antardasha_lord_thai"`
+	AntardashaStart       string `json:"antardasha_start"`
+	AntardashaEnd         string `json:"antardasha_end"`
+	PratyantardashaLord     string `json:"pratyantardasha_lord"`
+	PratyantardashaLordThai string `json:"pratyantardasha_lord_thai"`
+	PratyantardashaStart    string `json:"pratyantardasha_start"`
+	PratyantardashaEnd      string `json:"pratyantardasha_end"`
 }
 
 // MahadashaItem เก็บช่วงเวลามหาทศาแต่ละยุค
