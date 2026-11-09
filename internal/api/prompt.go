@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"lahiri-api/internal/calculator"
+
+	"github.com/mshafiee/swephgo"
 )
 
 // formatDMSInt จัดรูปแบบองศา ลิปดา ฟิลิปดา (ปัดเศษฟิลิปดาเป็นจำนวนเต็ม) เช่น 07°49'03"
@@ -324,6 +327,303 @@ func FormatRomanCompactPrompt(resp CalculateResp) string {
 			calculator.ShortNakshatraName(d.MoonNakshatra),
 			mdShort, mdRange, adShort, adRange, pdShort,
 		))
+	}
+
+	return strings.TrimSpace(sb.String())
+}
+
+// FormatTransitDashaCompactPrompt สร้างข้อความสรุปดาวจรในเดือนและทศา/อนุทศา ณ เวลาดาวจร แบบ Roman Ultra-Compact สำหรับป้อน AI
+func FormatTransitDashaCompactPrompt(req TransitReq) string {
+	var sb strings.Builder
+
+	flag := swephgo.SeflgSwieph | swephgo.SeflgSpeed | swephgo.SeflgSidereal
+	signs := calculator.GetZodiacSigns()
+	englishSigns := calculator.GetEnglishSigns()
+
+	// 1. คำนวณพื้นดวงกำเนิด (ลัคนากำเนิด, ตำแหน่งดาวกำเนิด, ดวงจันทร์กำเนิด)
+	natalJD, natalAyanamsa := calculator.ComputeJulianDayAndAyanamsa(
+		req.Year, req.Month, req.Day, req.HourThai, req.TimeZone,
+	)
+	houseRes := calculator.CalculateHouses(natalJD, req.Latitude, req.Longitude, int('W'), natalAyanamsa, signs)
+	var ascDeg float64
+	if len(houseRes) > 0 {
+		ascDeg = houseRes[0].Degree
+	}
+	ascSignIdx, _ := calculator.ParseLongitude(ascDeg)
+	ascSignShort := calculator.ShortSignCode(englishSigns[ascSignIdx])
+
+	natalPlanets := calculator.CalculatePlanets(natalJD, flag, signs)
+	natalHouseByShort := make(map[string]int, len(natalPlanets))
+	var moonLon float64
+	var moonSignShort string
+	var moonHouse int
+	for _, p := range natalPlanets {
+		pShort := calculator.ShortPlanetCode(p.Name)
+		pSignIdx, _ := calculator.ParseLongitude(p.Longitude)
+		hNum := ((pSignIdx - ascSignIdx + 12) % 12) + 1
+		natalHouseByShort[pShort] = hNum
+		if p.Name == "Moon" {
+			moonLon = p.Longitude
+			moonSignShort = calculator.ShortSignCode(englishSigns[pSignIdx])
+			moonHouse = hNum
+		}
+	}
+
+	// 2. กำหนดวันเวลาเป้าหมายของเดือนจร และคำนวณทศา ณ เวลาดาวจร
+	tDay := clampDayToMonth(req.TransitYear, req.TransitMonth, req.Day)
+	dateISO := fmt.Sprintf("%04d-%02d-%02d", req.TransitYear, req.TransitMonth, tDay)
+
+	tzOffsetSec := int(math.Round(req.TimeZone * 3600))
+	loc := time.FixedZone("LocalBirthTime", tzOffsetSec)
+	hourInt := int(req.HourThai)
+	minFloat := (req.HourThai - float64(hourInt)) * 60.0
+	minInt := int(minFloat)
+	secInt := int(math.Round((minFloat - float64(minInt)) * 60.0))
+	if secInt >= 60 {
+		secInt = 59
+	}
+	targetTime := time.Date(req.TransitYear, time.Month(req.TransitMonth), tDay, hourInt, minInt, secInt, 0, loc)
+
+	dasha := calculator.CalculateVimshottariDasha(
+		moonLon, req.Year, req.Month, req.Day, req.HourThai, req.TimeZone, targetTime,
+	)
+
+	// 3. คำนวณดาวจรนวเคราะห์ 9 ดวง ณ วันเวลาของเดือนจร
+	tJD, _ := calculator.ComputeJulianDayAndAyanamsa(
+		req.TransitYear, req.TransitMonth, tDay, req.HourThai, req.TimeZone,
+	)
+	tPlanetRes := calculator.CalculatePlanets(tJD, flag, signs)
+
+	var sunLon float64
+	planetByCanonical := make(map[string]calculator.PlanetResult, len(tPlanetRes))
+	for _, p := range tPlanetRes {
+		_, _, canonical := calculator.TranslateBodyInfo(p.Name)
+		planetByCanonical[canonical] = p
+		if canonical == "Sun" {
+			sunLon = p.Longitude
+		}
+	}
+
+	transitHouseByShort := make(map[string]int, len(navagrahaOrder))
+	vedicBodies := make([]bodyDrishtiItem, 0, len(navagrahaOrder))
+	planetLines := make([]string, 0, len(navagrahaOrder))
+
+	for _, canonicalName := range navagrahaOrder {
+		p, exists := planetByCanonical[canonicalName]
+		if !exists {
+			continue
+		}
+
+		pShort := calculator.ShortPlanetCode(p.Name)
+		posDetail := calculator.ParsePositionDetail(p.Longitude)
+		navamsaRes := calculator.CalculateNavamsa(p.Longitude)
+		nak, pada, _ := calculator.GetNakshatra(p.Longitude)
+		dignity, _ := calculator.CalculateDignity(p.Name, p.Longitude)
+		isCombust := calculator.IsPlanetCombust(p.Name, p.Longitude, sunLon, p.IsRetro)
+
+		pSignIdx, _ := calculator.ParseLongitude(p.Longitude)
+		houseNum := ((pSignIdx - ascSignIdx + 12) % 12) + 1
+		transitHouseByShort[pShort] = houseNum
+
+		d1SignShort := calculator.ShortSignCode(posDetail.Sign)
+		d9SignShort := calculator.ShortSignCode(navamsaRes.Sign)
+
+		var flags []string
+		if p.IsRetro {
+			flags = append(flags, "R")
+		}
+		if isCombust {
+			flags = append(flags, "C")
+		}
+		if posDetail.Sign != "" && posDetail.Sign == navamsaRes.Sign {
+			flags = append(flags, "Varg")
+		}
+		flagStr := ""
+		if len(flags) > 0 {
+			flagStr = "[" + strings.Join(flags, ",") + "]"
+		}
+
+		d1DigShort := calculator.ShortDignityCode(dignity)
+		d9SignIdx := calculator.GetSignIndexByName(navamsaRes.Sign)
+		d9DigEng, _ := calculator.CalculateSignDignity(p.Name, d9SignIdx)
+		d9DigShort := calculator.ShortDignityCode(d9DigEng)
+
+		nakShort := calculator.ShortNakshatraName(nak.Name)
+		lordShort := calculator.ShortPlanetCode(nak.Lord)
+
+		planetLines = append(planetLines, fmt.Sprintf("%s%s:%s %s(%s)|H%d|%s(%d,%s)|D9:%s(%s)",
+			pShort, flagStr,
+			d1SignShort, formatDMSInt(posDetail), d1DigShort,
+			houseNum,
+			nakShort, pada, lordShort,
+			d9SignShort, d9DigShort,
+		))
+
+		vedicBodies = append(vedicBodies, bodyDrishtiItem{
+			Code:  pShort,
+			House: houseNum,
+			Lon:   p.Longitude,
+		})
+	}
+
+	// 4. สร้าง Header, NatalRef และบรรทัด Dasha@Date
+	sb.WriteString(fmt.Sprintf("[Vedic Transit(Lahiri)/WholeSign | Date:%s]\n", dateISO))
+	sb.WriteString(fmt.Sprintf("NatalRef: ASC:%s(H1) | Moon:%s(H%d,%s)\n",
+		ascSignShort, moonSignShort, moonHouse, calculator.ShortNakshatraName(dasha.MoonNakshatra),
+	))
+
+	mdShort := calculator.ShortPlanetCode(dasha.CurrentDasha.MahadashaLord)
+	adShort := calculator.ShortPlanetCode(dasha.CurrentDasha.AntardashaLord)
+	pdShort := calculator.ShortPlanetCode(dasha.CurrentDasha.PratyantardashaLord)
+	if pdShort == "" {
+		pdShort = adShort
+	}
+
+	sb.WriteString(fmt.Sprintf("Dasha@%s: MD:%s(%s..%s)[nH%d->tH%d] / AD:%s(%s..%s)[nH%d->tH%d] / PD:%s(%s..%s)[nH%d->tH%d]\n",
+		dateISO,
+		mdShort, dasha.CurrentDasha.MahadashaStart, dasha.CurrentDasha.MahadashaEnd, natalHouseByShort[mdShort], transitHouseByShort[mdShort],
+		adShort, dasha.CurrentDasha.AntardashaStart, dasha.CurrentDasha.AntardashaEnd, natalHouseByShort[adShort], transitHouseByShort[adShort],
+		pdShort, dasha.CurrentDasha.PratyantardashaStart, dasha.CurrentDasha.PratyantardashaEnd, natalHouseByShort[pdShort], transitHouseByShort[pdShort],
+	))
+
+	// 5. ตารางดาวจร 9 ดวง
+	sb.WriteString("TransitPlanets(D1:Sign,DMS,Dig|House|Nak(Pada,Lord)|D9:Sign,Dig):\n")
+	for _, line := range planetLines {
+		sb.WriteString(line + "\n")
+	}
+
+	// 6. สรุปดาวจรกุมกันพร้อม Orb และ DeepCombust (TransitConj)
+	houseBodies := make(map[int][]bodyDrishtiItem, 12)
+	for _, b := range vedicBodies {
+		if b.House >= 1 && b.House <= 12 {
+			houseBodies[b.House] = append(houseBodies[b.House], b)
+		}
+	}
+
+	var conjParts []string
+	for h := 1; h <= 12; h++ {
+		bodies := houseBodies[h]
+		if len(bodies) < 2 {
+			continue
+		}
+		if len(bodies) == 2 {
+			b1, b2 := bodies[0], bodies[1]
+			orb := calculator.AngularDistance(b1.Lon, b2.Lon)
+			extra := ""
+			if (b1.Code == "Su" || b2.Code == "Su") && orb <= 5.0 {
+				extra = ",DeepCombust"
+			}
+			conjParts = append(conjParts, fmt.Sprintf("H%d(%s+%s[orb %s%s])",
+				h, b1.Code, b2.Code, formatDMSDiff(orb), extra,
+			))
+		} else {
+			sunIdx := -1
+			for idx, b := range bodies {
+				if b.Code == "Su" {
+					sunIdx = idx
+					break
+				}
+			}
+			var pairStrs []string
+			if sunIdx >= 0 {
+				sBody := bodies[sunIdx]
+				for idx, b := range bodies {
+					if idx == sunIdx {
+						continue
+					}
+					orb := calculator.AngularDistance(sBody.Lon, b.Lon)
+					extra := ""
+					if orb <= 5.0 {
+						extra = ",DeepCombust"
+					}
+					pairStrs = append(pairStrs, fmt.Sprintf("%s+%s[orb %s%s]",
+						sBody.Code, b.Code, formatDMSDiff(orb), extra,
+					))
+				}
+			} else {
+				base := bodies[0]
+				for idx := 1; idx < len(bodies); idx++ {
+					b := bodies[idx]
+					orb := calculator.AngularDistance(base.Lon, b.Lon)
+					pairStrs = append(pairStrs, fmt.Sprintf("%s+%s[orb %s]",
+						base.Code, b.Code, formatDMSDiff(orb),
+					))
+				}
+			}
+			conjParts = append(conjParts, fmt.Sprintf("H%d(%s)", h, strings.Join(pairStrs, ", ")))
+		}
+	}
+	if len(conjParts) > 0 {
+		sb.WriteString("TransitConj: " + strings.Join(conjParts, " ") + "\n")
+	}
+
+	// 7. สรุปเกณฑ์สายตาของดาวจร (TransitDrishti: Special & Mutual)
+	housePlanets := make(map[int][]string, 12)
+	planetHouse := make(map[string]int, len(vedicBodies))
+	for _, b := range vedicBodies {
+		housePlanets[b.House] = append(housePlanets[b.House], b.Code)
+		planetHouse[b.Code] = b.House
+	}
+
+	getTargetHouse := func(fromHouse, count int) int {
+		return ((fromHouse - 1 + (count - 1)) % 12) + 1
+	}
+
+	formatTarget := func(targetH int) string {
+		occupants := housePlanets[targetH]
+		if len(occupants) > 0 {
+			return fmt.Sprintf("H%d(%s)", targetH, strings.Join(occupants, ","))
+		}
+		return fmt.Sprintf("H%d", targetH)
+	}
+
+	var specialDrishtiParts []string
+	if h, ok := planetHouse["Sa"]; ok {
+		specialDrishtiParts = append(specialDrishtiParts, fmt.Sprintf("Sa->%s,%s,%s",
+			formatTarget(getTargetHouse(h, 3)),
+			formatTarget(getTargetHouse(h, 7)),
+			formatTarget(getTargetHouse(h, 10)),
+		))
+	}
+	if h, ok := planetHouse["Ma"]; ok {
+		specialDrishtiParts = append(specialDrishtiParts, fmt.Sprintf("Ma->%s,%s,%s",
+			formatTarget(getTargetHouse(h, 4)),
+			formatTarget(getTargetHouse(h, 7)),
+			formatTarget(getTargetHouse(h, 8)),
+		))
+	}
+	if h, ok := planetHouse["Ju"]; ok {
+		specialDrishtiParts = append(specialDrishtiParts, fmt.Sprintf("Ju->%s,%s,%s",
+			formatTarget(getTargetHouse(h, 5)),
+			formatTarget(getTargetHouse(h, 7)),
+			formatTarget(getTargetHouse(h, 9)),
+		))
+	}
+
+	var mutualParts []string
+	checkedPairs := make(map[int]bool)
+	for h := 1; h <= 6; h++ {
+		oppH := h + 6
+		pList1 := housePlanets[h]
+		pList2 := housePlanets[oppH]
+		if len(pList1) > 0 && len(pList2) > 0 && !checkedPairs[h] {
+			checkedPairs[h] = true
+			mutualParts = append(mutualParts, fmt.Sprintf("H%d(%s)<->H%d(%s)",
+				h, strings.Join(pList1, ","),
+				oppH, strings.Join(pList2, ","),
+			))
+		}
+	}
+
+	var drishtiLineParts []string
+	if len(specialDrishtiParts) > 0 {
+		drishtiLineParts = append(drishtiLineParts, strings.Join(specialDrishtiParts, " | "))
+	}
+	if len(mutualParts) > 0 {
+		drishtiLineParts = append(drishtiLineParts, "Mutual: "+strings.Join(mutualParts, ", "))
+	}
+	if len(drishtiLineParts) > 0 {
+		sb.WriteString("TransitDrishti(Special/Mutual): " + strings.Join(drishtiLineParts, " | "))
 	}
 
 	return strings.TrimSpace(sb.String())

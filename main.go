@@ -32,6 +32,8 @@ func main() {
 	mux.HandleFunc("/api/v1/hora/prompt", handler.HandleCalculatePrompt)
 	mux.HandleFunc("/api/v1/hora/transit", handler.HandleCalculateTransit)
 	mux.HandleFunc("/api/v1/hora/transitmonth", handler.HandleCalculateTransitMonth)
+	mux.HandleFunc("/api/v1/hora/transitdasha", handler.HandleCalculateTransitDasha)
+	mux.HandleFunc("/api/v1/hora/transitdasha_prompt", handler.HandleCalculateTransitDashaPrompt)
 
 	port := os.Getenv("PORT")
 	if port == "" {

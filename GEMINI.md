@@ -109,7 +109,13 @@ lahiri-api/
 ### 4.4 `POST /api/v1/hora/transitmonth`
 คำนวณดาวจรเฉพาะเดือนที่ระบุ (`transit_year` และ `transit_month`) คืนค่า `monthly_transit` ของเดือนนั้นๆ
 
-### 4.5 `POST /api/v1/hora/prompt`
+### 4.5 `POST /api/v1/hora/transitdasha`
+คำนวณดาวจรในเดือนที่ระบุ (`transit_year` และ `transit_month`) พร้อมข้อมูลทศาของเจ้าชะตา ณ เวลาดาวจรนั้น (`dasha`: มหาทศา, อันตรทศา/อนุทศา, และปรัตยันตรทศา) รวมอยู่ใน `monthly_transit`
+
+### 4.6 `POST /api/v1/hora/transitdasha_prompt`
+สร้างข้อความสรุปดาวจรในเดือนและทศา/อนุทศา ณ เวลาดาวจร แบบ **Roman Ultra-Compact** พร้อมระบุความเชื่อมโยงเรือนภพกำเนิดสู่เรือนภพจร (`[nH..->tH..]`), `TransitConj`, และ `TransitDrishti` (รองรับ `?format=raw` เพื่อรับ Plain Text ทันที)
+
+### 4.7 `POST /api/v1/hora/prompt`
 สร้างข้อความสรุปดวงชะตาแบบ **Roman Ultra-Compact** เพื่อป้อนเข้า System Prompt ของ LLM/AI โดยตรง ประหยัด Token สูงสุด (~75–100 Tokens) พร้อมระบุ Orb, Deep Combust, Drishti และ Pratyantardasha (PD)
 - ค่าเริ่มต้นคืนเป็น JSON: `{"status": "success", "prompt": "..."}`
 - หากส่ง Query Parameter `?format=raw` หรือ Header `Accept: text/plain` จะส่งกลับเป็นข้อความ Plain Text ทันที

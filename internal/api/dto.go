@@ -149,7 +149,25 @@ type TransitMonthWrapperResp struct {
 type ApiMonthlyTransit struct {
 	Month   int                `json:"month"`
 	Date    string             `json:"date"`
+	Dasha   *ApiTransitDasha   `json:"dasha,omitempty"`
 	Planets []ApiTransitPlanet `json:"planets"`
+}
+
+type ApiTransitDasha struct {
+	MoonNakshatra           string `json:"moon_nakshatra"`
+	MoonNakshatraThai       string `json:"moon_nakshatra_thai"`
+	MahadashaLord           string `json:"mahadasha_lord"`
+	MahadashaLordThai       string `json:"mahadasha_lord_thai"`
+	MahadashaStart          string `json:"mahadasha_start"`
+	MahadashaEnd            string `json:"mahadasha_end"`
+	AntardashaLord          string `json:"antardasha_lord"`
+	AntardashaLordThai      string `json:"antardasha_lord_thai"`
+	AntardashaStart         string `json:"antardasha_start"`
+	AntardashaEnd           string `json:"antardasha_end"`
+	PratyantardashaLord     string `json:"pratyantardasha_lord"`
+	PratyantardashaLordThai string `json:"pratyantardasha_lord_thai"`
+	PratyantardashaStart    string `json:"pratyantardasha_start"`
+	PratyantardashaEnd      string `json:"pratyantardasha_end"`
 }
 
 type ApiTransitPlanet struct {

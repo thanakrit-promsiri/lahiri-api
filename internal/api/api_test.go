@@ -180,13 +180,17 @@ func TestHandleCalculateHora(t *testing.T) {
 
 func TestHandleCalculateTransit(t *testing.T) {
 	rawInput := `{
-  "year": 1988,
-  "month": 12,
-  "day": 23,
-  "hour_thai": 10.35,
-  "latitude": 13.7563,
-  "longitude": 100.5018,
-  "transit_year": 2026
+  "calculateReq": {
+    "year": 1988,
+    "month": 12,
+    "day": 23,
+    "hour_thai": 10.35,
+    "time_zone": 7.0,
+    "latitude": 13.7563,
+    "longitude": 100.5018,
+    "house_system": "W",
+    "transit_year": 2026
+  }
 }`
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/transit", bytes.NewBufferString(rawInput))
@@ -239,14 +243,18 @@ func TestHandleCalculateTransit(t *testing.T) {
 
 func TestHandleCalculateTransitMonth(t *testing.T) {
 	rawInput := `{
-  "year": 1988,
-  "month": 12,
-  "day": 23,
-  "hour_thai": 10.35,
-  "latitude": 13.7563,
-  "longitude": 100.5018,
-  "transit_year": 2026,
-  "transit_month": 12
+  "calculateReq": {
+    "year": 1988,
+    "month": 12,
+    "day": 23,
+    "hour_thai": 10.35,
+    "time_zone": 7.0,
+    "latitude": 13.7563,
+    "longitude": 100.5018,
+    "house_system": "W",
+    "transit_year": 2026,
+    "transit_month": 12
+  }
 }`
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/transitmonth", bytes.NewBufferString(rawInput))
@@ -291,14 +299,18 @@ func TestHandleCalculateTransitMonth(t *testing.T) {
 
 func TestHandleCalculateDashaWithTransitDate(t *testing.T) {
 	rawInput := `{
-  "year": 1988,
-  "month": 12,
-  "day": 23,
-  "hour_thai": 10.35,
-  "latitude": 13.7563,
-  "longitude": 100.5018,
-  "transit_year": 2026,
-  "transit_month": 12
+  "calculateReq": {
+    "year": 1988,
+    "month": 12,
+    "day": 23,
+    "hour_thai": 10.35,
+    "time_zone": 7.0,
+    "latitude": 13.7563,
+    "longitude": 100.5018,
+    "house_system": "W",
+    "transit_year": 2026,
+    "transit_month": 12
+  }
 }`
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/dasha", bytes.NewBufferString(rawInput))
@@ -333,13 +345,17 @@ func TestHandleCalculateDashaWithTransitDate(t *testing.T) {
 func TestEndOfMonthTransitDates(t *testing.T) {
 	// ทดสอบกรณีคนเกิดวันที่ 31 (สิ้นเดือน) ในปีปกติ (2026) และปีอธิกสุรทิน Leap Year (2028)
 	rawInput2026 := `{
-  "year": 1988,
-  "month": 12,
-  "day": 31,
-  "hour_thai": 10.35,
-  "latitude": 13.7563,
-  "longitude": 100.5018,
-  "transit_year": 2026
+  "calculateReq": {
+    "year": 1988,
+    "month": 12,
+    "day": 31,
+    "hour_thai": 10.35,
+    "time_zone": 7.0,
+    "latitude": 13.7563,
+    "longitude": 100.5018,
+    "house_system": "W",
+    "transit_year": 2026
+  }
 }`
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/transit", bytes.NewBufferString(rawInput2026))
@@ -365,14 +381,18 @@ func TestEndOfMonthTransitDates(t *testing.T) {
 
 	// ทดสอบปีอธิกสุรทิน (Leap Year 2028 -> ก.พ. ต้องได้ 29/02/2028)
 	rawInput2028 := `{
-  "year": 1988,
-  "month": 12,
-  "day": 31,
-  "hour_thai": 10.35,
-  "latitude": 13.7563,
-  "longitude": 100.5018,
-  "transit_year": 2028,
-  "transit_month": 2
+  "calculateReq": {
+    "year": 1988,
+    "month": 12,
+    "day": 31,
+    "hour_thai": 10.35,
+    "time_zone": 7.0,
+    "latitude": 13.7563,
+    "longitude": 100.5018,
+    "house_system": "W",
+    "transit_year": 2028,
+    "transit_month": 2
+  }
 }`
 	reqLeap := httptest.NewRequest(http.MethodPost, "/api/v1/hora/transitmonth", bytes.NewBufferString(rawInput2028))
 	reqLeap.Header.Set("Content-Type", "application/json")
@@ -385,5 +405,57 @@ func TestEndOfMonthTransitDates(t *testing.T) {
 	}
 	if respLeap.MonthlyTransit.Date != "29/02/2028" {
 		t.Errorf("Expected leap year Feb date '29/02/2028', got '%s'", respLeap.MonthlyTransit.Date)
+	}
+}
+
+func TestHandleCalculateTransitDasha(t *testing.T) {
+	rawInput := `{
+  "calculateReq": {
+    "year": 1988,
+    "month": 12,
+    "day": 23,
+    "hour_thai": 10.35,
+    "time_zone": 7.0,
+    "latitude": 13.7563,
+    "longitude": 100.5018,
+    "house_system": "W",
+    "transit_year": 2026,
+    "transit_month": 12
+  }
+}`
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/transitdasha", bytes.NewBufferString(rawInput))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	HandleCalculateTransitDasha(rec, req)
+
+	res := rec.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status code %d, got %d", http.StatusOK, res.StatusCode)
+	}
+
+	var wrapperResp TransitMonthWrapperResp
+	if err := json.NewDecoder(res.Body).Decode(&wrapperResp); err != nil {
+		t.Fatalf("Failed to decode transitdasha response JSON: %v", err)
+	}
+
+	if wrapperResp.Status != "success" {
+		t.Errorf("Expected status 'success', got '%s'", wrapperResp.Status)
+	}
+
+	mt := wrapperResp.MonthlyTransit
+	if mt.Month != 12 || mt.Date != "23/12/2026" {
+		t.Errorf("Expected month 12 date '23/12/2026', got month %d date '%s'", mt.Month, mt.Date)
+	}
+
+	if mt.Dasha == nil {
+		t.Fatalf("Expected dasha object in monthly_transit, got nil")
+	}
+	if mt.Dasha.MahadashaLord != "Saturn" || mt.Dasha.AntardashaLord != "Mercury" || mt.Dasha.PratyantardashaLord != "Sun" {
+		t.Errorf("Expected MD=Saturn, AD=Mercury, PD=Sun at 23/12/2026, got %+v", mt.Dasha)
+	}
+	if len(mt.Planets) != 9 {
+		t.Fatalf("Expected 9 Navagraha planets, got %d", len(mt.Planets))
 	}
 }

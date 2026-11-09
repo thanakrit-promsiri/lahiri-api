@@ -138,7 +138,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"year\": 1988,\n  \"month\": 12,\n  \"day\": 23,\n  \"hour_thai\": 10.35,\n  \"latitude\": 13.7563,\n  \"longitude\": 100.5018,\n  \"transit_year\": 2026,\n  \"transit_month\": 12\n}",
+          "raw": "{\n  \"calculateReq\": {\n    \"year\": 1988,\n    \"month\": 12,\n    \"day\": 23,\n    \"hour_thai\": 10.35,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018,\n    \"house_system\": \"W\",\n    \"transit_year\": 2026,\n    \"transit_month\": 12\n  }\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -210,7 +210,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"year\": 1988,\n  \"month\": 12,\n  \"day\": 23,\n  \"hour_thai\": 10.35,\n  \"latitude\": 13.7563,\n  \"longitude\": 100.5018,\n  \"transit_year\": 2026\n}",
+          "raw": "{\n  \"calculateReq\": {\n    \"year\": 1988,\n    \"month\": 12,\n    \"day\": 23,\n    \"hour_thai\": 10.35,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018,\n    \"house_system\": \"W\",\n    \"transit_year\": 2026\n  }\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -246,7 +246,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"year\": 1988,\n  \"month\": 12,\n  \"day\": 23,\n  \"hour_thai\": 10.35,\n  \"latitude\": 13.7563,\n  \"longitude\": 100.5018,\n  \"transit_year\": 2026,\n  \"transit_month\": 12\n}",
+          "raw": "{\n  \"calculateReq\": {\n    \"year\": 1988,\n    \"month\": 12,\n    \"day\": 23,\n    \"hour_thai\": 10.35,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018,\n    \"house_system\": \"W\",\n    \"transit_year\": 2026,\n    \"transit_month\": 12\n  }\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -270,7 +270,79 @@
       "response": []
     },
     {
-      "name": "7. Validation Error Example (400 Bad Request)",
+      "name": "7. Calculate Monthly Transit + Dasha (ดาวจรในเดือนพร้อมทศา/อนุทศา ณ เวลาดาวจร)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"calculateReq\": {\n    \"year\": 1988,\n    \"month\": 12,\n    \"day\": 23,\n    \"hour_thai\": 10.35,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018,\n    \"house_system\": \"W\",\n    \"transit_year\": 2026,\n    \"transit_month\": 12\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/hora/transitdasha",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "hora",
+            "transitdasha"
+          ]
+        },
+        "description": "คำนวณดาวจรในเดือนที่ระบุ พร้อมทศา/มหาทศา/อันตรทศา/ปรัตยันตรทศา (อนุทศา) ของเจ้าชะตา ณ เวลาดาวจรนั้น"
+      },
+      "response": []
+    },
+    {
+      "name": "8. Generate Transit + Dasha AI Prompt (Roman Ultra-Compact)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"calculateReq\": {\n    \"year\": 1988,\n    \"month\": 12,\n    \"day\": 23,\n    \"hour_thai\": 10.35,\n    \"time_zone\": 7.0,\n    \"latitude\": 13.7563,\n    \"longitude\": 100.5018,\n    \"house_system\": \"W\",\n    \"transit_year\": 2026,\n    \"transit_month\": 12\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/hora/transitdasha_prompt",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "hora",
+            "transitdasha_prompt"
+          ]
+        },
+        "description": "สร้างข้อความดาวจรในเดือนและทศา/อนุทศา ณ เวลาดาวจร แบบ Roman Ultra-Compact สำหรับป้อน AI (หากต้องการ Plain Text ทันทีให้เติม ?format=raw)"
+      },
+      "response": []
+    },
+    {
+      "name": "9. Validation Error Example (400 Bad Request)",
       "request": {
         "method": "POST",
         "header": [

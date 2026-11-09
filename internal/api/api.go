@@ -62,6 +62,16 @@ func HandleCalculateTransitMonth(w http.ResponseWriter, r *http.Request) {
 	NewHandler(Log, nil).HandleCalculateTransitMonth(w, r)
 }
 
+// HandleCalculateTransitDasha เป็นฟังก์ชันระดับ Package สำหรับคำนวณดาวจรในเดือนพร้อมทศา/อนุทศา ณ เวลาดาวจร
+func HandleCalculateTransitDasha(w http.ResponseWriter, r *http.Request) {
+	NewHandler(Log, nil).HandleCalculateTransitDasha(w, r)
+}
+
+// HandleCalculateTransitDashaPrompt เป็นฟังก์ชันระดับ Package สำหรับสร้างข้อความ Roman Ultra-Compact ของดาวจร+ทศาจร
+func HandleCalculateTransitDashaPrompt(w http.ResponseWriter, r *http.Request) {
+	NewHandler(Log, nil).HandleCalculateTransitDashaPrompt(w, r)
+}
+
 // normalizeReq ปรับค่าเริ่มต้น เช่น แปลงปี พ.ศ. เป็น ค.ศ. อัตโนมัติหากเกิน 2400
 func normalizeReq(req *CalculateReq) {
 	if req.Year > 2400 {
@@ -652,6 +662,136 @@ func (h *Handler) HandleCalculateTransitMonth(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Error("Failed to encode monthly transit response JSON", zap.Error(err))
+	}
+}
+
+// computeMonthTransitWithDasha คำนวณดาวจรเฉพาะเดือนที่ระบุ พร้อมทศา/อนุทศาของเจ้าชะตา ณ เวลาดาวจรนั้น
+func computeMonthTransitWithDasha(req TransitReq) ApiMonthlyTransit {
+	flag := swephgo.SeflgSwieph | swephgo.SeflgSpeed | swephgo.SeflgSidereal
+	signs := calculator.GetZodiacSigns()
+
+	// 1. คำนวณลัคนาดวงกำเนิด (เรือนที่ 1) และองศาดวงจันทร์กำเนิดสำหรับวิมโสตรีทศา
+	natalJD, natalAyanamsa := calculator.ComputeJulianDayAndAyanamsa(
+		req.Year, req.Month, req.Day, req.HourThai, req.TimeZone,
+	)
+	houseRes := calculator.CalculateHouses(natalJD, req.Latitude, req.Longitude, int('W'), natalAyanamsa, signs)
+	var ascDeg float64
+	if len(houseRes) > 0 {
+		ascDeg = houseRes[0].Degree
+	}
+	ascSignIdx, _ := calculator.ParseLongitude(ascDeg)
+
+	natalPlanets := calculator.CalculatePlanets(natalJD, flag, signs)
+	var moonLon float64
+	for _, p := range natalPlanets {
+		if p.Name == "Moon" {
+			moonLon = p.Longitude
+			break
+		}
+	}
+
+	// 2. คำนวณดาวจรของเดือนที่ระบุ
+	mt := computeSingleMonthTransit(req, req.TransitMonth, ascSignIdx, flag, signs)
+
+	// 3. คำนวณทศา (มหาทศา, อันตรทศา/อนุทศา, ปรัตยันตรทศา) ณ วันเวลาดาวจรของเดือนนั้น
+	tDay := clampDayToMonth(req.TransitYear, req.TransitMonth, req.Day)
+	tzOffsetSec := int(math.Round(req.TimeZone * 3600))
+	loc := time.FixedZone("LocalBirthTime", tzOffsetSec)
+	hourInt := int(req.HourThai)
+	minFloat := (req.HourThai - float64(hourInt)) * 60.0
+	minInt := int(minFloat)
+	secInt := int(math.Round((minFloat - float64(minInt)) * 60.0))
+	if secInt >= 60 {
+		secInt = 59
+	}
+	targetTime := time.Date(req.TransitYear, time.Month(req.TransitMonth), tDay, hourInt, minInt, secInt, 0, loc)
+
+	fullDasha := calculator.CalculateVimshottariDasha(
+		moonLon, req.Year, req.Month, req.Day, req.HourThai, req.TimeZone, targetTime,
+	)
+
+	mt.Dasha = &ApiTransitDasha{
+		MoonNakshatra:           fullDasha.MoonNakshatra,
+		MoonNakshatraThai:       fullDasha.MoonNakshatraThai,
+		MahadashaLord:           fullDasha.CurrentDasha.MahadashaLord,
+		MahadashaLordThai:       fullDasha.CurrentDasha.MahadashaLordThai,
+		MahadashaStart:          fullDasha.CurrentDasha.MahadashaStart,
+		MahadashaEnd:            fullDasha.CurrentDasha.MahadashaEnd,
+		AntardashaLord:          fullDasha.CurrentDasha.AntardashaLord,
+		AntardashaLordThai:      fullDasha.CurrentDasha.AntardashaLordThai,
+		AntardashaStart:         fullDasha.CurrentDasha.AntardashaStart,
+		AntardashaEnd:           fullDasha.CurrentDasha.AntardashaEnd,
+		PratyantardashaLord:     fullDasha.CurrentDasha.PratyantardashaLord,
+		PratyantardashaLordThai: fullDasha.CurrentDasha.PratyantardashaLordThai,
+		PratyantardashaStart:    fullDasha.CurrentDasha.PratyantardashaStart,
+		PratyantardashaEnd:      fullDasha.CurrentDasha.PratyantardashaEnd,
+	}
+
+	return mt
+}
+
+// HandleCalculateTransitDasha ประมวลผลคำขอคำนวณดาวจรในเดือนพร้อมทศา/อนุทศา ณ เวลาดาวจร (POST /api/v1/hora/transitdasha)
+func (h *Handler) HandleCalculateTransitDasha(w http.ResponseWriter, r *http.Request) {
+	req, ok := h.decodeAndValidateTransitReq(w, r, true)
+	if !ok {
+		return
+	}
+
+	h.logger.Info("Received monthly transit with dasha calculation request",
+		zap.Int("birth_year", req.Year),
+		zap.Int("birth_month", req.Month),
+		zap.Int("birth_day", req.Day),
+		zap.Int("transit_year", req.TransitYear),
+		zap.Int("transit_month", req.TransitMonth),
+		zap.Float64("latitude", req.Latitude),
+		zap.Float64("longitude", req.Longitude),
+	)
+
+	monthlyTransit := computeMonthTransitWithDasha(req)
+
+	resp := TransitMonthWrapperResp{
+		Status:         "success",
+		MonthlyTransit: monthlyTransit,
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		h.logger.Error("Failed to encode monthly transit with dasha response JSON", zap.Error(err))
+	}
+}
+
+// HandleCalculateTransitDashaPrompt ประมวลผลและคืนค่าข้อความดาวจรและทศา/อนุทศา ณ เวลาดาวจร แบบ Roman Ultra-Compact (POST /api/v1/hora/transitdasha_prompt)
+// รองรับ ?format=raw หรือ Header Accept: text/plain เพื่อรับเป็น Plain Text ทันที หรือรับเป็น JSON {"status":"success","prompt":"..."}
+func (h *Handler) HandleCalculateTransitDashaPrompt(w http.ResponseWriter, r *http.Request) {
+	req, ok := h.decodeAndValidateTransitReq(w, r, true)
+	if !ok {
+		return
+	}
+
+	h.logger.Info("Received transit dasha AI prompt generation request",
+		zap.Int("birth_year", req.Year),
+		zap.Int("birth_month", req.Month),
+		zap.Int("birth_day", req.Day),
+		zap.Int("transit_year", req.TransitYear),
+		zap.Int("transit_month", req.TransitMonth),
+	)
+
+	promptText := FormatTransitDashaCompactPrompt(req)
+
+	if r.URL.Query().Get("format") == "raw" || r.Header.Get("Accept") == "text/plain" {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write([]byte(promptText))
+		return
+	}
+
+	resp := PromptWrapperResp{
+		Status: "success",
+		Prompt: promptText,
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		h.logger.Error("Failed to encode transit dasha prompt response JSON", zap.Error(err))
 	}
 }
 
