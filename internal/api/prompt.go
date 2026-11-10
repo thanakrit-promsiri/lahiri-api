@@ -185,7 +185,21 @@ func formatDrishti(bodies []bodyDrishtiItem) string {
 func FormatRomanCompactPrompt(resp CalculateResp) string {
 	var sb strings.Builder
 
-	sb.WriteString("[Vedic Sidereal(Lahiri)/WholeSign]\n")
+	if resp.Metadata.BirthDate != "" {
+		tzStr := ""
+		if resp.Metadata.TimeZone != 0 {
+			tzStr = fmt.Sprintf(" (TZ%+g)", resp.Metadata.TimeZone)
+		}
+		if resp.Metadata.BirthTime != "" {
+			sb.WriteString(fmt.Sprintf("[Vedic Sidereal(Lahiri)/WholeSign | Birth:%s %s%s]\n",
+				resp.Metadata.BirthDate, resp.Metadata.BirthTime, tzStr))
+		} else {
+			sb.WriteString(fmt.Sprintf("[Vedic Sidereal(Lahiri)/WholeSign | Birth:%s%s]\n",
+				resp.Metadata.BirthDate, tzStr))
+		}
+	} else {
+		sb.WriteString("[Vedic Sidereal(Lahiri)/WholeSign]\n")
+	}
 
 	// 1. บรรทัดลัคนาและมุมหลัก (ASC, MC, DSC, IC)
 	if len(resp.HousesAndAngles) > 0 {
@@ -331,8 +345,21 @@ func FormatTransitDashaCompactPrompt(req TransitReq) string {
 
 	// 1. Header & NatalRef
 	sb.WriteString(fmt.Sprintf("[Vedic Transit(Lahiri)/WholeSign | Date:%s]\n", data.DateISO))
-	sb.WriteString(fmt.Sprintf("NatalRef: ASC:%s(H1) | Moon:%s(H%d,%s)\n",
+	birthRef := ""
+	if data.NatalBirthDate != "" {
+		tzStr := ""
+		if data.NatalTimeZone != 0 {
+			tzStr = fmt.Sprintf(" (TZ%+g)", data.NatalTimeZone)
+		}
+		if data.NatalBirthTime != "" {
+			birthRef = fmt.Sprintf(" | Birth:%s %s%s", data.NatalBirthDate, data.NatalBirthTime, tzStr)
+		} else {
+			birthRef = fmt.Sprintf(" | Birth:%s%s", data.NatalBirthDate, tzStr)
+		}
+	}
+	sb.WriteString(fmt.Sprintf("NatalRef: ASC:%s(H1) | Moon:%s(H%d,%s)%s\n",
 		data.NatalAscSignShort, data.NatalMoonSignShort, data.NatalMoonHouse, calculator.ShortNakshatraName(data.NatalMoonNakName),
+		birthRef,
 	))
 
 	// 2. Dasha@Date

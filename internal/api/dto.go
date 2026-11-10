@@ -45,8 +45,11 @@ type DashaWrapperResp struct {
 }
 
 type PromptWrapperResp struct {
-	Status string `json:"status"`
-	Prompt string `json:"prompt"`
+	Status    string  `json:"status"`
+	BirthDate string  `json:"birth_date,omitempty"`
+	BirthTime string  `json:"birth_time,omitempty"`
+	TimeZone  float64 `json:"time_zone,omitempty"`
+	Prompt    string  `json:"prompt"`
 }
 
 // --- Transit Response Structs ---

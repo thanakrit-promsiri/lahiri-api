@@ -201,6 +201,9 @@ type CalculateResp struct {
 }
 
 type ApiMetadata struct {
+	BirthDate       string      `json:"birth_date,omitempty"`
+	BirthTime       string      `json:"birth_time,omitempty"`
+	TimeZone        float64     `json:"time_zone,omitempty"`
 	JulianDay       float64     `json:"julian_day"`
 	AyanamsaName    string      `json:"ayanamsa_name"`
 	AyanamsaDegrees string      `json:"ayanamsa_degrees"`
@@ -331,6 +334,9 @@ type TransitPromptBody struct {
 
 type TransitDashaPromptData struct {
 	DateISO             string
+	NatalBirthDate      string
+	NatalBirthTime      string
+	NatalTimeZone       float64
 	NatalAscSignShort   string
 	NatalMoonSignShort  string
 	NatalMoonHouse      int

@@ -35,6 +35,9 @@ func TestPromptOutputFormat(t *testing.T) {
 	res := rawPromptRec.Body.String()
 	t.Logf("Generated Prompt:\n%s", res)
 
+	if !bytes.Contains([]byte(res), []byte("Birth:1988-12-23 10:21")) {
+		t.Errorf("Expected Birth date and time in prompt output")
+	}
 	if !bytes.Contains([]byte(res), []byte("Drishti(Special/Mutual):")) {
 		t.Errorf("Expected Drishti in prompt output")
 	}
@@ -43,6 +46,23 @@ func TestPromptOutputFormat(t *testing.T) {
 	}
 	if !bytes.Contains([]byte(res), []byte("/PD:")) {
 		t.Errorf("Expected PD in prompt output")
+	}
+
+	// 2. ทดสอบแบบ JSON
+	jsonPromptReq := httptest.NewRequest(http.MethodPost, "/api/v1/hora/prompt", bytes.NewBuffer(jsonBytes))
+	jsonPromptReq.Header.Set("Content-Type", "application/json")
+	jsonPromptRec := httptest.NewRecorder()
+	HandleCalculatePrompt(jsonPromptRec, jsonPromptReq)
+
+	var jsonResp PromptWrapperResp
+	if err := json.NewDecoder(jsonPromptRec.Body).Decode(&jsonResp); err != nil {
+		t.Fatalf("Failed to decode prompt JSON response: %v", err)
+	}
+	if jsonResp.BirthDate != "1988-12-23" {
+		t.Errorf("Expected BirthDate '1988-12-23', got '%s'", jsonResp.BirthDate)
+	}
+	if jsonResp.BirthTime != "10:21" {
+		t.Errorf("Expected BirthTime '10:21', got '%s'", jsonResp.BirthTime)
 	}
 }
 
@@ -78,6 +98,12 @@ func TestTransitDashaPromptOutputFormat(t *testing.T) {
 	if wrapperResp.Status != "success" || wrapperResp.Prompt == "" {
 		t.Errorf("Expected non-empty prompt in JSON response, got %+v", wrapperResp)
 	}
+	if wrapperResp.BirthDate != "1988-12-23" {
+		t.Errorf("Expected BirthDate '1988-12-23', got '%s'", wrapperResp.BirthDate)
+	}
+	if wrapperResp.BirthTime != "10:21" {
+		t.Errorf("Expected BirthTime '10:21', got '%s'", wrapperResp.BirthTime)
+	}
 
 	// 2. ทดสอบแบบ ?format=raw (Plain Text)
 	rawReq := httptest.NewRequest(http.MethodPost, "/api/v1/hora/transitdasha_prompt?format=raw", bytes.NewBufferString(rawInput))
@@ -91,6 +117,7 @@ func TestTransitDashaPromptOutputFormat(t *testing.T) {
 	expectedSubstrings := []string{
 		"[Vedic Transit(Lahiri)/WholeSign | Date:2026-12-23]",
 		"NatalRef: ASC:Aq(H1)",
+		"Birth:1988-12-23 10:21",
 		"Dasha@2026-12-23:",
 		"TransitPlanets(D1:Sign,DMS,Dig|House|Nak(Pada,Lord)|D9:Sign,Dig):",
 		"TransitDrishti(Special/Mutual):",

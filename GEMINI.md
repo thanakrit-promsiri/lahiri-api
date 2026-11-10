@@ -117,13 +117,13 @@ lahiri-api/
 สร้างข้อความสรุปดาวจรในเดือนและทศา/อนุทศา ณ เวลาดาวจร แบบ **Roman Ultra-Compact** พร้อมระบุความเชื่อมโยงเรือนภพกำเนิดสู่เรือนภพจร (`[nH..->tH..]`), `TransitConj`, และ `TransitDrishti` (รองรับ `?format=raw` เพื่อรับ Plain Text ทันที)
 
 ### 4.7 `POST /api/v1/hora/prompt`
-สร้างข้อความสรุปดวงชะตาแบบ **Roman Ultra-Compact** เพื่อป้อนเข้า System Prompt ของ LLM/AI โดยตรง ประหยัด Token สูงสุด (~75–100 Tokens) พร้อมระบุ Orb, Deep Combust, Drishti และ Pratyantardasha (PD)
-- ค่าเริ่มต้นคืนเป็น JSON: `{"status": "success", "prompt": "..."}`
+สร้างข้อความสรุปดวงชะตาแบบ **Roman Ultra-Compact** เพื่อป้อนเข้า System Prompt ของ LLM/AI โดยตรง ประหยัด Token สูงสุด (~75–100 Tokens) พร้อมระบุวันเวลาเกิด (Birth Date/Time, TimeZone), Orb, Deep Combust, Drishti และ Pratyantardasha (PD)
+- ค่าเริ่มต้นคืนเป็น JSON: `{"status": "success", "birth_date": "1988-12-23", "birth_time": "10:21", "time_zone": 7, "prompt": "..."}`
 - หากส่ง Query Parameter `?format=raw` หรือ Header `Accept: text/plain` จะส่งกลับเป็นข้อความ Plain Text ทันที
 
 **ตัวอย่างข้อความผลลัพธ์ (Roman Ultra-Compact):**
 ```text
-[Vedic Sidereal(Lahiri)/WholeSign]
+[Vedic Sidereal(Lahiri)/WholeSign | Birth:1988-12-23 10:21 (TZ+7)]
 ASC:Aq 03°39'23"|D9:Sc|Nak:Dhanishta(4,Ma) | MC:Sc 10°54'11"(H10) DSC:Le 03°39'23"(H7) IC:Ta 10°54'11"(H4)
 Planets(D1:Sign,DMS,Dig|House|Nak(Pada,Lord)|D9:Sign,Dig):
 Su:Sg 07°49'03"(Fri)|H11|Mula(3,Ke)|D9:Ge(Neu)

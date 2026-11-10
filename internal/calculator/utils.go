@@ -75,6 +75,30 @@ func FormatSignDMS(lon float64, signs []string) string {
 	return fmt.Sprintf("%s (%s)", signs[signIdx], dmsStr)
 }
 
+// FormatBirthDateTime แปลงปี เดือน วัน และ hour_thai เป็นสตริงวันที่ ISO (YYYY-MM-DD) และเวลา (HH:MM หรือ HH:MM:SS)
+func FormatBirthDateTime(year, month, day int, hourThai float64) (string, string) {
+	dateStr := fmt.Sprintf("%04d-%02d-%02d", year, month, day)
+	hourInt := int(hourThai)
+	minFloat := (hourThai - float64(hourInt)) * 60.0
+	minInt := int(minFloat)
+	secInt := int(math.Round((minFloat - float64(minInt)) * 60.0))
+	if secInt >= 60 {
+		secInt = 0
+		minInt++
+		if minInt >= 60 {
+			minInt = 0
+			hourInt = (hourInt + 1) % 24
+		}
+	}
+	var timeStr string
+	if secInt > 0 {
+		timeStr = fmt.Sprintf("%02d:%02d:%02d", hourInt, minInt, secInt)
+	} else {
+		timeStr = fmt.Sprintf("%02d:%02d", hourInt, minInt)
+	}
+	return dateStr, timeStr
+}
+
 // ==========================================
 // 4. Domain & Helper Functions
 // ==========================================

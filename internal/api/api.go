@@ -274,9 +274,14 @@ func (h *Handler) HandleCalculatePrompt(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	birthDate, birthTime := calculator.FormatBirthDateTime(req.Year, req.Month, req.Day, req.HourThai)
+
 	resp := PromptWrapperResp{
-		Status: "success",
-		Prompt: promptText,
+		Status:    "success",
+		BirthDate: birthDate,
+		BirthTime: birthTime,
+		TimeZone:  req.TimeZone,
+		Prompt:    promptText,
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -397,9 +402,14 @@ func (h *Handler) HandleCalculateTransitDashaPrompt(w http.ResponseWriter, r *ht
 		return
 	}
 
+	birthDate, birthTime := calculator.FormatBirthDateTime(req.Year, req.Month, req.Day, req.HourThai)
+
 	resp := PromptWrapperResp{
-		Status: "success",
-		Prompt: promptText,
+		Status:    "success",
+		BirthDate: birthDate,
+		BirthTime: birthTime,
+		TimeZone:  req.TimeZone,
+		Prompt:    promptText,
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

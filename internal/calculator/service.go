@@ -143,8 +143,13 @@ func ComputeHoroscope(req CalculateReq) CalculateResp {
 		moonLon, req.Year, req.Month, req.Day, req.HourThai, req.TimeZone, time.Now(),
 	)
 
+	birthDate, birthTime := FormatBirthDateTime(req.Year, req.Month, req.Day, req.HourThai)
+
 	return CalculateResp{
 		Metadata: ApiMetadata{
+			BirthDate:       birthDate,
+			BirthTime:       birthTime,
+			TimeZone:        req.TimeZone,
 			JulianDay:       jd,
 			AyanamsaName:    "Lahiri",
 			AyanamsaDegrees: FormatDMS(ayanamsa),
@@ -517,8 +522,13 @@ func ComputeTransitDashaPromptData(req TransitReq) TransitDashaPromptData {
 		vedicBodies = append(vedicBodies, body)
 	}
 
+	bDate, bTime := FormatBirthDateTime(req.Year, req.Month, req.Day, req.HourThai)
+
 	return TransitDashaPromptData{
 		DateISO:             dateISO,
+		NatalBirthDate:      bDate,
+		NatalBirthTime:      bTime,
+		NatalTimeZone:       req.TimeZone,
 		NatalAscSignShort:   ascSignShort,
 		NatalMoonSignShort:  moonSignShort,
 		NatalMoonHouse:      moonHouse,

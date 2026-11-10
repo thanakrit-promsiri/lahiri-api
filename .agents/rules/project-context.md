@@ -16,10 +16,10 @@
 lahiri-api/
 ├── internal/
 │   ├── api/
-│   │   ├── api.go         # HTTP Handlers (Calculate, Dasha, Prompt), Routing, Validation
+│   │   ├── api.go         # HTTP Handlers (Controller / Presentation Layer), Validation, Routing
 │   │   ├── api_test.go    # Integration & Unit Tests สำหรับ API Endpoints
-│   │   ├── dto.go         # Request / Response Structs พร้อม Validate() method
-│   │   ├── prompt.go      # FormatRomanCompactPrompt() สร้าง Prompt Roman Ultra-Compact (Drishti, Orb, PD)
+│   │   ├── dto.go         # Request / Response Struct Type Aliases พร้อม Validate() method
+│   │   ├── prompt.go      # Format AI Prompts (Presenter) Roman Ultra-Compact (Drishti, Orb, PD)
 │   │   └── prompt_test.go # Unit Test สำหรับตรวจรูปแบบและฟังก์ชันสร้าง AI Prompt
 │   └── calculator/
 │       ├── config.go      # ข้อมูลราศี, นักษัตร, ดาวเจ้าเรือน, คำแปลไทย, รหัสย่อสากล
@@ -30,6 +30,7 @@ lahiri-api/
 │       ├── nakshatra.go   # คำนวณ 27 นักษัตรฤกษ์ และ บาทฤกษ์ (Pada 1-4)
 │       ├── navamsa.go     # คำนวณนวางศ์จักร (D9 Navamsa Chart)
 │       ├── planet.go      # คำนวณตำแหน่งดาวเคราะห์, ราหู, เกตุ
+│       ├── service.go     # Application / Domain Service Layer (Orchestration สำหรับทุก Use Case)
 │       ├── types.go       # Data types และ Data models ภายใน calculator
 │       └── utils.go       # ฟังก์ชันคณิตศาสตร์มุม, DMS, ระยะเชิงมุม
 ├── bin/
@@ -97,16 +98,32 @@ lahiri-api/
   ```
 
 ### 4.2 `POST /api/v1/hora/dasha`
-คำนวณเฉพาะข้อมูลวิมโสตรีทศา 120 ปี และทศาปัจจุบัน (ใช้ Request Body แบบเดียวกับ `/calculate`)
+คำนวณเฉพาะข้อมูลวิมโสตรีทศา 120 ปี มหาทศา (Mahadasha), อันตรทศา/อนุทศา (Antardasha), และปรัตยันตรทศา (Pratyantardasha)
+- รองรับทั้ง Request Body แบบห่อใน `calculateReq` และแบบ Flat JSON
+- สามารถส่ง `transit_year` และ `transit_month` เพิ่มเติมเพื่อระบุปีและเดือนจรที่ต้องการหาทศาได้ (ยึดตามตัวเลขวันเกิดเดิม และปรับเป็นวันสิ้นเดือนอัตโนมัติหากเดือนนั้นมีจำนวนวันน้อยกว่า)
 
-### 4.3 `POST /api/v1/hora/prompt`
-สร้างข้อความสรุปดวงชะตาแบบ **Roman Ultra-Compact** เพื่อป้อนเข้า System Prompt ของ LLM/AI โดยตรง ประหยัด Token สูงสุด (~75–100 Tokens) พร้อมระบุ Orb, Deep Combust, Drishti และ Pratyantardasha (PD)
-- ค่าเริ่มต้นคืนเป็น JSON: `{"status": "success", "prompt": "..."}`
+### 4.3 `POST /api/v1/hora/transit`
+คำนวณดาวจรประจำปีรายเดือนทั้ง 12 เดือน (`monthly_transits`) ณ วันเกิดและเวลาเดิมในปีจร (`transit_year`)
+- กำหนดราศีลัคนาดวงกำเนิดเป็นเรือนที่ 1 (Whole Sign)
+- แสดงดาวนวเคราะห์ 9 ดวง (`1-Sun` ถึง `9-Ketu`) พร้อมเรือนภพเทียบลัคนากำเนิด
+
+### 4.4 `POST /api/v1/hora/transitmonth`
+คำนวณดาวจรเฉพาะเดือนที่ระบุ (`transit_year` และ `transit_month`) คืนค่า `monthly_transit` ของเดือนนั้นๆ
+
+### 4.5 `POST /api/v1/hora/transitdasha`
+คำนวณดาวจรในเดือนที่ระบุ (`transit_year` และ `transit_month`) พร้อมข้อมูลทศาของเจ้าชะตา ณ เวลาดาวจรนั้น (`dasha`: มหาทศา, อันตรทศา/อนุทศา, และปรัตยันตรทศา) รวมอยู่ใน `monthly_transit`
+
+### 4.6 `POST /api/v1/hora/transitdasha_prompt`
+สร้างข้อความสรุปดาวจรในเดือนและทศา/อนุทศา ณ เวลาดาวจร แบบ **Roman Ultra-Compact** พร้อมระบุความเชื่อมโยงเรือนภพกำเนิดสู่เรือนภพจร (`[nH..->tH..]`), `TransitConj`, และ `TransitDrishti` (รองรับ `?format=raw` เพื่อรับ Plain Text ทันที)
+
+### 4.7 `POST /api/v1/hora/prompt`
+สร้างข้อความสรุปดวงชะตาแบบ **Roman Ultra-Compact** เพื่อป้อนเข้า System Prompt ของ LLM/AI โดยตรง ประหยัด Token สูงสุด (~75–100 Tokens) พร้อมระบุวันเวลาเกิด (Birth Date/Time, TimeZone), Orb, Deep Combust, Drishti และ Pratyantardasha (PD)
+- ค่าเริ่มต้นคืนเป็น JSON: `{"status": "success", "birth_date": "1988-12-23", "birth_time": "10:21", "time_zone": 7, "prompt": "..."}`
 - หากส่ง Query Parameter `?format=raw` หรือ Header `Accept: text/plain` จะส่งกลับเป็นข้อความ Plain Text ทันที
 
 **ตัวอย่างข้อความผลลัพธ์ (Roman Ultra-Compact):**
 ```text
-[Vedic Sidereal(Lahiri)/WholeSign]
+[Vedic Sidereal(Lahiri)/WholeSign | Birth:1988-12-23 10:21 (TZ+7)]
 ASC:Aq 03°39'23"|D9:Sc|Nak:Dhanishta(4,Ma) | MC:Sc 10°54'11"(H10) DSC:Le 03°39'23"(H7) IC:Ta 10°54'11"(H4)
 Planets(D1:Sign,DMS,Dig|House|Nak(Pada,Lord)|D9:Sign,Dig):
 Su:Sg 07°49'03"(Fri)|H11|Mula(3,Ke)|D9:Ge(Neu)
