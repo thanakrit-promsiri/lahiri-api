@@ -16,10 +16,10 @@
 lahiri-api/
 ├── internal/
 │   ├── api/
-│   │   ├── api.go         # HTTP Handlers (Calculate, Dasha, Prompt), Routing, Validation
+│   │   ├── api.go         # HTTP Handlers (Controller / Presentation Layer), Validation, Routing
 │   │   ├── api_test.go    # Integration & Unit Tests สำหรับ API Endpoints
-│   │   ├── dto.go         # Request / Response Structs พร้อม Validate() method
-│   │   ├── prompt.go      # FormatRomanCompactPrompt() สร้าง Prompt Roman Ultra-Compact (Drishti, Orb, PD)
+│   │   ├── dto.go         # Request / Response Struct Type Aliases พร้อม Validate() method
+│   │   ├── prompt.go      # Format AI Prompts (Presenter) Roman Ultra-Compact (Drishti, Orb, PD)
 │   │   └── prompt_test.go # Unit Test สำหรับตรวจรูปแบบและฟังก์ชันสร้าง AI Prompt
 │   └── calculator/
 │       ├── config.go      # ข้อมูลราศี, นักษัตร, ดาวเจ้าเรือน, คำแปลไทย, รหัสย่อสากล
@@ -30,6 +30,7 @@ lahiri-api/
 │       ├── nakshatra.go   # คำนวณ 27 นักษัตรฤกษ์ และ บาทฤกษ์ (Pada 1-4)
 │       ├── navamsa.go     # คำนวณนวางศ์จักร (D9 Navamsa Chart)
 │       ├── planet.go      # คำนวณตำแหน่งดาวเคราะห์, ราหู, เกตุ
+│       ├── service.go     # Application / Domain Service Layer (Orchestration สำหรับทุก Use Case)
 │       ├── types.go       # Data types และ Data models ภายใน calculator
 │       └── utils.go       # ฟังก์ชันคณิตศาสตร์มุม, DMS, ระยะเชิงมุม
 ├── bin/

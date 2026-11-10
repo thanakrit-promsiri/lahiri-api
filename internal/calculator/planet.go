@@ -4,6 +4,14 @@ import (
 	"github.com/mshafiee/swephgo"
 )
 
+// DefaultSiderealFlags ค่าแฟล็กสำหรับการคำนวณตำแหน่งดาวและอายนางศะแบบนิรายนะ (Swiss Ephemeris Sidereal)
+const DefaultSiderealFlags = swephgo.SeflgSwieph | swephgo.SeflgSpeed | swephgo.SeflgSidereal
+
+// CalculateSiderealPlanets คำนวณตำแหน่งดาวในระบบนิรายนะ (Lahiri Sidereal) โดยใช้แฟล็กมาตรฐาน
+func CalculateSiderealPlanets(jd float64) []PlanetResult {
+	return CalculatePlanets(jd, DefaultSiderealFlags, GetZodiacSigns())
+}
+
 // CalculatePlanets ประมวลผลตำแหน่งดาวทั้งหมดและคืนค่าเป็น slice ของผลลัพธ์
 func CalculatePlanets(jd float64, flags int, signs []string) []PlanetResult {
 	sweMu.Lock()

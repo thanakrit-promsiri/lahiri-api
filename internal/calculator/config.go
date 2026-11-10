@@ -125,6 +125,18 @@ var (
 		"Rahu":    "ราหู (๘)",
 		"Ketu":    "เกตุ (๙)",
 	}
+
+	NavagrahaOrder = []string{
+		"Sun",     // 1-อาทิตย์
+		"Moon",    // 2-จันทร์
+		"Mars",    // 3-อังคาร
+		"Mercury", // 4-พุธ
+		"Jupiter", // 5-พฤหัสบดี
+		"Venus",   // 6-ศุกร์
+		"Saturn",  // 7-เสาร์
+		"Rahu",    // 8-ราหู
+		"Ketu",    // 9-เกตุ
+	}
 )
 
 // GetDefaultConfig คืนค่าคอนฟิกเริ่มต้นสำหรับคำนวณ

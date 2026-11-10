@@ -4,6 +4,11 @@ import (
 	"github.com/mshafiee/swephgo"
 )
 
+// CalculateSiderealHouses คำนวณมุมภพและลัคนาในระบบนิรายนะ (Lahiri Sidereal) โดยใช้รายชื่อราศีมาตรฐาน
+func CalculateSiderealHouses(jd float64, lat, lon float64, houseSys int, ayanamsa float64) []HouseResult {
+	return CalculateHouses(jd, lat, lon, houseSys, ayanamsa, GetZodiacSigns())
+}
+
 // CalculateHouses ประมวลผลลัคนา, MC, DSC, IC และคืนค่าผลลัพธ์
 func CalculateHouses(jd float64, lat float64, lon float64, houseSys int, ayanamsa float64, signs []string) []HouseResult {
 	sweMu.Lock()

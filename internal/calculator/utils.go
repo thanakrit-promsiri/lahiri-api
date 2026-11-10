@@ -3,6 +3,7 @@ package calculator
 import (
 	"fmt"
 	"math"
+	"time"
 )
 
 // ==========================================
@@ -29,6 +30,15 @@ func NormalizeAngle(val float64) float64 {
 		val -= 360
 	}
 	return val
+}
+
+// ClampDayToMonth ป้องกันกรณีวันที่เกิด (เช่น 29, 30, 31) เกินจำนวนวันสูงสุดของเดือนเป้าหมาย
+func ClampDayToMonth(year, month, day int) int {
+	lastDay := time.Date(year, time.Month(month)+1, 0, 0, 0, 0, 0, time.UTC).Day()
+	if day > lastDay {
+		return lastDay
+	}
+	return day
 }
 
 // AngularDistance คำนวณระยะห่างเชิงมุมที่สั้นที่สุดระหว่างลองจิจูด 2 ค่า (0 - 180 องศา)
