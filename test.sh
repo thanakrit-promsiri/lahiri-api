@@ -10,6 +10,14 @@
 # เพื่อป้องกันการรันขั้นตอนต่อไปเมื่อ Unit Test ไม่ผ่าน
 set -e
 
+run_go_test() {
+    if [[ "$(uname -s)" == Linux* ]]; then
+        go test -ldflags="-extldflags=-Wl,--no-as-needed,-lm" "$@"
+    else
+        go test "$@"
+    fi
+}
+
 echo "=================================================================="
 echo " 🚀 Starting Automated Testing & Test Coverage Process "
 echo "=================================================================="
@@ -19,21 +27,21 @@ echo "=================================================================="
 # ------------------------------------------------------------------------------
 echo ""
 echo "📌 Step 1: Running Unit Tests for all packages..."
-go test -v ./...
+run_go_test -v ./...
 
 # ------------------------------------------------------------------------------
 # Step 2: คำนวณเปอร์เซ็นต์ Test Coverage รวมของแต่ละแพ็กเกจ
 # ------------------------------------------------------------------------------
 echo ""
 echo "📌 Step 2: Calculating Test Coverage Summary per package..."
-go test -cover ./...
+run_go_test -cover ./...
 
 # ------------------------------------------------------------------------------
 # Step 3: ประมวลผลและส่งออกไฟล์ Profile ข้อมูล Coverage (coverage.out)
 # ------------------------------------------------------------------------------
 echo ""
 echo "📌 Step 3: Generating Detailed Coverage Profile (coverage.out)..."
-go test -coverprofile=coverage.out ./...
+run_go_test -coverprofile=coverage.out ./...
 
 # ------------------------------------------------------------------------------
 # Step 4: แสดงสถิติและเปอร์เซ็นต์ Coverage รายฟังก์ชันลงใน Terminal

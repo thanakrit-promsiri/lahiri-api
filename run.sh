@@ -13,11 +13,15 @@ set -e
 APP_NAME="lahiri-api"
 BUILD_DIR="bin"
 
-# ตรวจสอบระบบปฏิบัติการเพื่อกำหนดนามสกุลไฟล์ (.exe สำหรับ Windows)
+# ตรวจสอบระบบปฏิบัติการเพื่อกำหนดนามสกุลไฟล์ (.exe สำหรับ Windows) และ Linker Flags สำหรับ Linux
 EXT=""
+GO_LDFLAGS="-s -w"
 case "$(uname -s)" in
     CYGWIN*|MINGW*|MSYS*)
         EXT=".exe"
+        ;;
+    Linux*)
+        GO_LDFLAGS="-s -w -extldflags=-Wl,--no-as-needed,-lm"
         ;;
 esac
 
@@ -48,7 +52,7 @@ echo "=================================================================="
 
 build_binary() {
     mkdir -p "${BUILD_DIR}"
-    go build -ldflags="-s -w" -o "${BINARY_PATH}" .
+    go build -ldflags="${GO_LDFLAGS}" -o "${BINARY_PATH}" .
 }
 
 # ------------------------------------------------------------------------------

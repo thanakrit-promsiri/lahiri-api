@@ -42,12 +42,12 @@ jobs:
       - name: Run unit tests with coverage
         env:
           CGO_ENABLED: 1
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+        run: go test -v -race -ldflags="-extldflags=-Wl,--no-as-needed,-lm" -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Build production binary
         env:
           CGO_ENABLED: 1
-        run: go build -v -o bin/lahiri-api .
+        run: go build -v -ldflags="-extldflags=-Wl,--no-as-needed,-lm" -o bin/lahiri-api .
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4 # v7.1.0
