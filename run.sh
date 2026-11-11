@@ -46,30 +46,31 @@ echo "=================================================================="
 echo " 🚀 Lahiri Vedic Astrology API - Build & Run Script"
 echo "=================================================================="
 
+build_binary() {
+    mkdir -p "${BUILD_DIR}"
+    go build -ldflags="-s -w" -o "${BINARY_PATH}" .
+}
+
 # ------------------------------------------------------------------------------
 # Step 1: Build Go Binary
 # ------------------------------------------------------------------------------
-if [ "$DO_BUILD" = true ]; then
+if [[ "${DO_BUILD}" == "true" ]]; then
     echo ""
     echo "📦 Step 1: Building binary -> ${BINARY_PATH} (CGO_ENABLED=${CGO_ENABLED})..."
-    mkdir -p "${BUILD_DIR}"
-    go build -ldflags="-s -w" -o "${BINARY_PATH}" .
+    build_binary
     echo "✅ Build completed successfully!"
+elif [[ ! -f "${BINARY_PATH}" ]]; then
+    echo "⚠️  Binary not found at ${BINARY_PATH}. Building now..."
+    build_binary
 else
-    if [ ! -f "${BINARY_PATH}" ]; then
-        echo "⚠️  Binary not found at ${BINARY_PATH}. Building now..."
-        mkdir -p "${BUILD_DIR}"
-        go build -ldflags="-s -w" -o "${BINARY_PATH}" .
-    else
-        echo ""
-        echo "⏭️  Skipping build step (using existing ${BINARY_PATH})"
-    fi
+    echo ""
+    echo "⏭️  Skipping build step (using existing ${BINARY_PATH})"
 fi
 
 # ------------------------------------------------------------------------------
 # Step 2: Run Binary
 # ------------------------------------------------------------------------------
-if [ "$DO_RUN" = true ]; then
+if [[ "${DO_RUN}" == "true" ]]; then
     echo ""
     echo "🟢 Step 2: Starting ${APP_NAME} on port ${PORT} (APP_ENV=${APP_ENV})..."
     echo "------------------------------------------------------------------"
