@@ -44,7 +44,7 @@ lahiri-api/
 ├── lahiri-api.postman_collection.json  # Postman Collection V2.1 (ครอบคลุมทั้ง 3 Endpoints)
 ├── logger.go              # Zap Logger + file-rotatelogs Daily Rotation config
 ├── main.go                # Entrypoint, Graceful Shutdown, Server Timeout config
-├── run.sh                 # Bash script สำหรับ Build/Run binary
+├── run.sh                 # Bash script สำหรับ Verify, Test + Coverage, Build และ Run binary
 ├── sonar-project.properties  # SonarCloud Configuration & Coverage Report Path
 ├── test.sh                # Automated test & coverage report script
 ├── go.mod / go.sum
@@ -152,9 +152,12 @@ Dasha(Moon:Ardra): MD:Sa(2022-11-25..2041-11-24)/AD:Me(2025-11-27..2028-08-06)/P
 1. **WSL / Linux Environment:**
    - เนื่องจาก `swephgo` มี CGO Dependency (`libswe-dev`), การ Build และ Run จะต้องทำผ่านสภาพแวดล้อมที่มี GCC/Clang เช่น **WSL (Ubuntu/Debian)**
 2. **การรันสคริปต์:**
-   - Build Binary: `./run.sh --build-only`
-   - รันเซิร์ฟเวอร์จาก Binary: `./run.sh --no-build`
-   - Build ใหม่พร้อมรัน: `./run.sh`
-   - รัน Unit Test ทั้งหมด: `go test -v ./...` หรือ `./test.sh`
+   - Verify -> Test + Coverage (`-race`) -> Build -> Run: `./run.sh` (หรือ `./run.sh run` / `start`)
+   - Verify -> Test + Coverage -> Build Binary (ไม่รันเซิร์ฟเวอร์): `./run.sh --build-only` (หรือ `./run.sh build` / `ci`)
+   - รันจาก Binary เดิมทันที (หากยังไม่มี Binary จะ Verify + Test + Build ให้อัตโนมัติ): `./run.sh --no-build`
+   - ข้ามขั้นตอน Unit Tests (ใช้ร่วมกับ `run` หรือ `--build-only`): `./run.sh --skip-test`
+   - ตรวจสอบโค้ด + รัน Unit Tests พร้อม Coverage (`coverage.out` และ `coverage.html`): `./run.sh test` (หรือ `cover` / `coverage` / `check` หรือ `./test.sh`)
+   - กำหนดเกณฑ์ Coverage ขั้นต่ำ / ตัวเลือกอื่น: `MIN_COVERAGE=40 ./run.sh test`, `./run.sh bench`, `./run.sh dev`, `./run.sh clean`, `./run.sh help`
+   - บน Linux/WSL สคริปต์จะแนบ `-ldflags="-extldflags=-Wl,--no-as-needed,-lm"` ให้อัตโนมัติเพื่อรองรับ `libswe-dev`
 3. **Concurrency Safety:**
    - การเรียกใช้ฟังก์ชัน Swiss Ephemeris (`swephgo`) ต้องถูกล็อกผ่าน `sweMu` (Mutex ใน `helpers.go`) เสมอ เนื่องจาก C Library มี Shared Global State
