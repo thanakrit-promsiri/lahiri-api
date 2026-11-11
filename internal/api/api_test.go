@@ -5,7 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
+
+	"go.uber.org/zap"
 )
 
 func TestHandleCalculateHora(t *testing.T) {
@@ -457,5 +461,204 @@ func TestHandleCalculateTransitDasha(t *testing.T) {
 	}
 	if len(mt.Planets) != 9 {
 		t.Fatalf("Expected 9 Navagraha planets, got %d", len(mt.Planets))
+	}
+}
+
+func TestSetLoggerAndHandlerCallback(t *testing.T) {
+	prevLog := Log
+	t.Cleanup(func() {
+		SetLogger(prevLog)
+	})
+
+	logger := zap.NewNop()
+	SetLogger(logger)
+	if Log != logger {
+		t.Fatalf("expected global Log to be set")
+	}
+
+	nilHandler := NewHandler(nil, nil)
+	if nilHandler.logger == nil {
+		t.Fatalf("expected NewHandler(nil, nil) to fallback to nop logger")
+	}
+
+	var callbackCalled bool
+	var gotBirthDate string
+	h := NewHandler(logger, func(resp CalculateResp) {
+		callbackCalled = true
+		gotBirthDate = resp.Metadata.BirthDate
+	})
+
+	body := `{"calculateReq":{"year":2531,"month":12,"day":23,"hour_thai":10.35,"time_zone":7,"latitude":13.7563,"longitude":100.5018}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/calculate", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.HandleCalculateHora(rec, req)
+
+	if rec.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rec.Result().StatusCode)
+	}
+	if !callbackCalled || gotBirthDate != "1988-12-23" {
+		t.Errorf("expected onResult callback with BirthDate 1988-12-23, got called=%v date=%q", callbackCalled, gotBirthDate)
+	}
+}
+
+func TestNormalizeRequests(t *testing.T) {
+	calcReq := CalculateReq{Year: 2531, HouseSystem: ""}
+	normalizeReq(&calcReq)
+	if calcReq.Year != 1988 || calcReq.HouseSystem != "W" {
+		t.Errorf("normalizeReq mismatch: %+v", calcReq)
+	}
+
+	tReq := TransitReq{Year: 2531, TransitYear: 2569, TimeZone: 0, HouseSystem: ""}
+	normalizeTransitReq(&tReq)
+	if tReq.Year != 1988 || tReq.TransitYear != 2026 || tReq.TimeZone != 7.0 || tReq.HouseSystem != "W" {
+		t.Errorf("normalizeTransitReq mismatch: %+v", tReq)
+	}
+
+	defaultYearReq := TransitReq{Year: 1988, TransitYear: 0}
+	normalizeTransitReq(&defaultYearReq)
+	if defaultYearReq.TransitYear != time.Now().Year() {
+		t.Errorf("expected TransitYear %d, got %d", time.Now().Year(), defaultYearReq.TransitYear)
+	}
+}
+
+func TestHandleCalculateDashaVariantsAndErrors(t *testing.T) {
+	successPayloads := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "FlatJSON",
+			body: `{"year":1988,"month":12,"day":23,"hour_thai":10.35,"time_zone":7,"latitude":13.7563,"longitude":100.5018,"transit_year":2026,"transit_month":12}`,
+		},
+		{
+			name: "TransitReqWrapper",
+			body: `{"transitReq":{"year":1988,"month":12,"day":23,"hour_thai":10.35,"time_zone":7,"latitude":13.7563,"longitude":100.5018,"transit_year":2026,"transit_month":12}}`,
+		},
+		{
+			name: "CalculateReqWithOuterTransitFallback",
+			body: `{"transit_year":2026,"transit_month":12,"calculateReq":{"year":1988,"month":12,"day":23,"hour_thai":10.35,"time_zone":7,"latitude":13.7563,"longitude":100.5018}}`,
+		},
+	}
+
+	for _, tc := range successPayloads {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/dasha", strings.NewReader(tc.body))
+			rec := httptest.NewRecorder()
+			HandleCalculateDasha(rec, req)
+
+			if rec.Result().StatusCode != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", rec.Result().StatusCode, rec.Body.String())
+			}
+			var resp DashaWrapperResp
+			if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+				t.Fatalf("decode error: %v", err)
+			}
+			if resp.VimshottariDasha.TargetDate != "23/12/2026" {
+				t.Errorf("expected TargetDate 23/12/2026, got %q", resp.VimshottariDasha.TargetDate)
+			}
+		})
+	}
+
+	errorCases := []struct {
+		name       string
+		method     string
+		body       string
+		wantStatus int
+	}{
+		{"MethodNotAllowed", http.MethodGet, "", http.StatusMethodNotAllowed},
+		{"InvalidJSON", http.MethodPost, "{bad-json", http.StatusBadRequest},
+		{"InvalidTransitMonth", http.MethodPost, `{"year":1988,"month":12,"day":23,"hour_thai":10.35,"transit_year":2026,"transit_month":13}`, http.StatusBadRequest},
+		{"InvalidBirthMonth", http.MethodPost, `{"year":1988,"month":13,"day":23,"hour_thai":10.35,"transit_year":2026,"transit_month":12}`, http.StatusBadRequest},
+	}
+
+	for _, tc := range errorCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, "/api/v1/hora/dasha", strings.NewReader(tc.body))
+			rec := httptest.NewRecorder()
+			HandleCalculateDasha(rec, req)
+			if rec.Result().StatusCode != tc.wantStatus {
+				t.Errorf("expected status %d, got %d", tc.wantStatus, rec.Result().StatusCode)
+			}
+		})
+	}
+}
+
+func TestTransitAndPromptFormatAndErrorPaths(t *testing.T) {
+	t.Run("PromptAcceptTextPlain", func(t *testing.T) {
+		calcBody := `{"calculateReq":{"year":1988,"month":12,"day":23,"hour_thai":10.35,"time_zone":7,"latitude":13.7563,"longitude":100.5018}}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/prompt", strings.NewReader(calcBody))
+		req.Header.Set("Accept", "text/plain")
+		rec := httptest.NewRecorder()
+		HandleCalculatePrompt(rec, req)
+		if rec.Result().StatusCode != http.StatusOK || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/plain") {
+			t.Errorf("expected 200 text/plain, got %d (%s)", rec.Result().StatusCode, rec.Header().Get("Content-Type"))
+		}
+
+		transitBody := `{"year":1988,"month":12,"day":23,"hour_thai":10.35,"time_zone":7,"latitude":13.7563,"longitude":100.5018,"transit_year":2026,"transit_month":12}`
+		tReq := httptest.NewRequest(http.MethodPost, "/api/v1/hora/transitdasha_prompt", strings.NewReader(transitBody))
+		tReq.Header.Set("Accept", "text/plain")
+		tRec := httptest.NewRecorder()
+		HandleCalculateTransitDashaPrompt(tRec, tReq)
+		if tRec.Result().StatusCode != http.StatusOK || !strings.HasPrefix(tRec.Header().Get("Content-Type"), "text/plain") {
+			t.Errorf("expected 200 text/plain, got %d (%s)", tRec.Result().StatusCode, tRec.Header().Get("Content-Type"))
+		}
+	})
+
+	t.Run("TransitWrapperAndOuterFallback", func(t *testing.T) {
+		bodyWrapper := `{"transitReq":{"year":1988,"month":12,"day":23,"hour_thai":10.35,"latitude":13.7563,"longitude":100.5018,"transit_year":2026,"transit_month":5}}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/transitmonth", strings.NewReader(bodyWrapper))
+		rec := httptest.NewRecorder()
+		HandleCalculateTransitMonth(rec, req)
+		if rec.Result().StatusCode != http.StatusOK {
+			t.Fatalf("expected 200 from transitReq wrapper, got %d", rec.Result().StatusCode)
+		}
+
+		bodyOuter := `{"transit_year":2026,"transit_month":5,"calculateReq":{"year":1988,"month":12,"day":23,"hour_thai":10.35,"latitude":13.7563,"longitude":100.5018}}`
+		reqOuter := httptest.NewRequest(http.MethodPost, "/api/v1/hora/transitmonth", strings.NewReader(bodyOuter))
+		recOuter := httptest.NewRecorder()
+		HandleCalculateTransitMonth(recOuter, reqOuter)
+		if recOuter.Result().StatusCode != http.StatusOK {
+			t.Fatalf("expected 200 from outer fallback, got %d", recOuter.Result().StatusCode)
+		}
+	})
+
+	handlers := []struct {
+		name         string
+		path         string
+		fn           http.HandlerFunc
+		invalidParam string
+	}{
+		{"Prompt", "/api/v1/hora/prompt", HandleCalculatePrompt, `{"calculateReq":{"year":1988,"month":13,"day":23,"hour_thai":10.35}}`},
+		{"Transit", "/api/v1/hora/transit", HandleCalculateTransit, `{"year":1988,"month":13,"day":23,"hour_thai":10.35,"transit_year":2026}`},
+		{"TransitMonth", "/api/v1/hora/transitmonth", HandleCalculateTransitMonth, `{"year":1988,"month":12,"day":23,"hour_thai":10.35,"transit_year":2026,"transit_month":0}`},
+		{"TransitDasha", "/api/v1/hora/transitdasha", HandleCalculateTransitDasha, `{"year":1988,"month":12,"day":23,"hour_thai":10.35,"transit_year":2026,"transit_month":13}`},
+		{"TransitDashaPrompt", "/api/v1/hora/transitdasha_prompt", HandleCalculateTransitDashaPrompt, `{"year":1988,"month":12,"day":23,"hour_thai":10.35,"transit_year":2026,"transit_month":0}`},
+	}
+
+	for _, h := range handlers {
+		t.Run(h.name+"_MethodNotAllowed", func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, h.path, nil)
+			rec := httptest.NewRecorder()
+			h.fn(rec, req)
+			if rec.Result().StatusCode != http.StatusMethodNotAllowed {
+				t.Errorf("%s GET: expected 405, got %d", h.name, rec.Result().StatusCode)
+			}
+		})
+		t.Run(h.name+"_InvalidJSON", func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, h.path, strings.NewReader("{bad"))
+			rec := httptest.NewRecorder()
+			h.fn(rec, req)
+			if rec.Result().StatusCode != http.StatusBadRequest {
+				t.Errorf("%s invalid JSON: expected 400, got %d", h.name, rec.Result().StatusCode)
+			}
+		})
+		t.Run(h.name+"_ValidationError", func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, h.path, strings.NewReader(h.invalidParam))
+			rec := httptest.NewRecorder()
+			h.fn(rec, req)
+			if rec.Result().StatusCode != http.StatusBadRequest {
+				t.Errorf("%s validation: expected 400, got %d", h.name, rec.Result().StatusCode)
+			}
+		})
 	}
 }

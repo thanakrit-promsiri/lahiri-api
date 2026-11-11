@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"lahiri-api/internal/calculator"
 )
 
 func TestPromptOutputFormat(t *testing.T) {
@@ -127,4 +130,64 @@ func TestTransitDashaPromptOutputFormat(t *testing.T) {
 			t.Errorf("Expected '%s' in transitdasha_prompt output", sub)
 		}
 	}
+}
+
+func TestPromptDMSHelpers(t *testing.T) {
+	if got := formatDMSInt(calculator.PositionDetail{Degree: 10, Minute: 59, Second: 59.7}); got != `11°00'00"` {
+		t.Errorf("formatDMSInt carry mismatch: got %q", got)
+	}
+	if got := formatDMSDiff(5.9999); got != `6°00'` {
+		t.Errorf("formatDMSDiff carry mismatch: got %q", got)
+	}
+	if got := formatDMSDiff(3.5); got != `3°30'` {
+		t.Errorf("formatDMSDiff(3.5) mismatch: got %q", got)
+	}
+}
+
+func TestConjunctionsAndDrishtiEdgeCases(t *testing.T) {
+	t.Run("Conjunctions3PlusWithAndWithoutSun", func(t *testing.T) {
+		bodies := []bodyDrishtiItem{
+			{Code: "Me", House: 1, Lon: 10.0},
+			{Code: "Su", House: 1, Lon: 7.0},
+			{Code: "Sa", House: 1, Lon: 17.0},
+			{Code: "Mo", House: 5, Lon: 125.0},
+			{Code: "Ma", House: 5, Lon: 128.0},
+			{Code: "Ju", House: 5, Lon: 135.0},
+		}
+		conj := formatConjunctions(bodies)
+		if !strings.Contains(conj, "H1(Su+Me[orb 3°00',DeepCombust], Su+Sa[orb 10°00'])") {
+			t.Errorf("unexpected H1 Sun-centered conjunction string: %q", conj)
+		}
+		if !strings.Contains(conj, "H5(Mo+Ma[orb 3°00'], Mo+Ju[orb 10°00'])") {
+			t.Errorf("unexpected H5 conjunction string: %q", conj)
+		}
+	})
+
+	t.Run("ConjunctionsAndDrishtiEmpty", func(t *testing.T) {
+		bodies := []bodyDrishtiItem{
+			{Code: "ASC", House: 1, Lon: 5.0},
+			{Code: "Su", House: 1, Lon: 10.0},
+			{Code: "Mo", House: 2, Lon: 40.0},
+		}
+		if got := formatConjunctions(bodies); got != "H1(ASC+Su[orb 5°00',DeepCombust])" {
+			t.Errorf("unexpected single-house conjunction: %q", got)
+		}
+		if got := formatDrishti(bodies); got != "" {
+			t.Errorf("expected empty drishti without special aspects or mutual opposite planets, got %q", got)
+		}
+	})
+
+	t.Run("PromptHeaderVariants", func(t *testing.T) {
+		respNoBirth := CalculateResp{}
+		if out := FormatRomanCompactPrompt(respNoBirth); !strings.HasPrefix(out, "[Vedic Sidereal(Lahiri)/WholeSign]\n") {
+			t.Errorf("unexpected header without BirthDate: %q", out)
+		}
+
+		respDateOnly := CalculateResp{
+			Metadata: ApiMetadata{BirthDate: "1988-12-23", TimeZone: 0},
+		}
+		if out := FormatRomanCompactPrompt(respDateOnly); !strings.HasPrefix(out, "[Vedic Sidereal(Lahiri)/WholeSign | Birth:1988-12-23]\n") {
+			t.Errorf("unexpected header with BirthDate only: %q", out)
+		}
+	})
 }
