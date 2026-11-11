@@ -14,6 +14,9 @@
 
 ```text
 lahiri-api/
+├── .github/
+│   └── workflows/
+│       └── ci.yml         # GitHub Actions CI (Vet, Race Test, Coverage & SonarCloud Scan)
 ├── internal/
 │   ├── api/
 │   │   ├── api.go         # HTTP Handlers (Controller / Presentation Layer), Validation, Routing
@@ -42,6 +45,7 @@ lahiri-api/
 ├── logger.go              # Zap Logger + file-rotatelogs Daily Rotation config
 ├── main.go                # Entrypoint, Graceful Shutdown, Server Timeout config
 ├── run.sh                 # Bash script สำหรับ Build/Run binary
+├── sonar-project.properties  # SonarCloud Configuration & Coverage Report Path
 ├── test.sh                # Automated test & coverage report script
 ├── go.mod / go.sum
 └── GEMINI.md              # Project Context & Agent Rules

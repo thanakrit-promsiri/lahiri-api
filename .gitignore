@@ -36,3 +36,6 @@ logs/
 # .idea/
 # .vscode/
 /*.log
+
+# SonarScanner
+.scannerwork/
