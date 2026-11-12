@@ -49,21 +49,31 @@ func ComputeJulianDayAndAyanamsa(year, month, day int, hourLocal, timeZone float
 	return jd, ayanamsa
 }
 
-var defaultPlanets = []PlanetConfig{
-	{swephgo.SeSun, "Sun"},
-	{swephgo.SeMoon, "Moon"},
-	{swephgo.SeMercury, "Mercury"},
-	{swephgo.SeVenus, "Venus"},
-	{swephgo.SeMars, "Mars"},
-	{swephgo.SeJupiter, "Jupiter"},
-	{swephgo.SeSaturn, "Saturn"},
-	// {swephgo.SeUranus, "Uranus"},
-	// {swephgo.SeNeptune, "Neptune"},
-	// {swephgo.SePluto, "Pluto"},
-	{swephgo.SeMeanNode, "Rahu (Mean Node)"},
+var defaultPlanets = newPlanetList(swephgo.SeMeanNode, "Rahu (Mean Node)")
+
+var trueNodePlanets = newPlanetList(swephgo.SeTrueNode, "Rahu (True Node)")
+
+func newPlanetList(nodeID int, rahuName string) []PlanetConfig {
+	return []PlanetConfig{
+		{swephgo.SeSun, "Sun"},
+		{swephgo.SeMoon, "Moon"},
+		{swephgo.SeMercury, "Mercury"},
+		{swephgo.SeVenus, "Venus"},
+		{swephgo.SeMars, "Mars"},
+		{swephgo.SeJupiter, "Jupiter"},
+		{swephgo.SeSaturn, "Saturn"},
+		{nodeID, rahuName},
+	}
 }
 
 func getPlanetList() []PlanetConfig {
+	return defaultPlanets
+}
+
+func getPlanetListWithNode(useTrueNode bool) []PlanetConfig {
+	if useTrueNode {
+		return trueNodePlanets
+	}
 	return defaultPlanets
 }
 

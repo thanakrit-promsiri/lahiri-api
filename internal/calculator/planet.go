@@ -12,14 +12,24 @@ func CalculateSiderealPlanets(jd float64) []PlanetResult {
 	return CalculatePlanets(jd, DefaultSiderealFlags, GetZodiacSigns())
 }
 
-// CalculatePlanets ประมวลผลตำแหน่งดาวทั้งหมดและคืนค่าเป็น slice ของผลลัพธ์
+// CalculateSiderealPlanetsWithNode คำนวณตำแหน่งดาวในระบบนิรายนะโดยเลือกได้ระหว่าง Mean Node หรือ True Node
+func CalculateSiderealPlanetsWithNode(jd float64, useTrueNode bool) []PlanetResult {
+	return CalculatePlanetsWithNode(jd, DefaultSiderealFlags, GetZodiacSigns(), useTrueNode)
+}
+
+// CalculatePlanets ประมวลผลตำแหน่งดาวทั้งหมดและคืนค่าเป็น slice ของผลลัพธ์ (Mean Node)
 func CalculatePlanets(jd float64, flags int, signs []string) []PlanetResult {
+	return CalculatePlanetsWithNode(jd, flags, signs, false)
+}
+
+// CalculatePlanetsWithNode ประมวลผลตำแหน่งดาวทั้งหมดโดยเลือกรูปแบบโหนดจันทร์ (Mean Node / True Node)
+func CalculatePlanetsWithNode(jd float64, flags int, signs []string, useTrueNode bool) []PlanetResult {
 	sweMu.Lock()
 	defer sweMu.Unlock()
 
 	swephgo.SetSidMode(swephgo.SeSidmLahiri, 0, 0)
 
-	planetList := getPlanetList()
+	planetList := getPlanetListWithNode(useTrueNode)
 	results := make([]PlanetResult, 0, len(planetList)+1)
 	xx := make([]float64, 6)
 	serr := make([]byte, 256)
@@ -42,12 +52,18 @@ func CalculatePlanets(jd float64, flags int, signs []string) []PlanetResult {
 		})
 	}
 
-	// คำนวณ Ketu เพิ่มเติม
-	resNode := swephgo.CalcUt(jd, swephgo.SeMeanNode, flags, xx, serr)
+	// คำนวณ Ketu เพิ่มเติม (อยู่ตรงข้าม Rahu 180 องศาเสมอ)
+	ketuNodeID := swephgo.SeMeanNode
+	ketuName := "Ketu (Calculated)"
+	if useTrueNode {
+		ketuNodeID = swephgo.SeTrueNode
+		ketuName = "Ketu (True Node)"
+	}
+	resNode := swephgo.CalcUt(jd, ketuNodeID, flags, xx, serr)
 	if resNode >= 0 {
 		ketuLon := NormalizeAngle(xx[0] + 180.0)
 		results = append(results, PlanetResult{
-			Name:      "Ketu (Calculated)",
+			Name:      ketuName,
 			Longitude: ketuLon,
 			Speed:     xx[3],
 			PosStr:    FormatSignDMS(ketuLon, signs),

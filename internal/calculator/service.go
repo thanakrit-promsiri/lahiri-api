@@ -9,6 +9,15 @@ import (
 
 // ComputeHoroscope คำนวณข้อมูลดวงชะตาพระเวทแบบครบวงจร (ลัคนา, ภพ, ดาวเคราะห์, มาตรฐานดาว, ดาวดับ, เจ้าเรือนภพ, วิมโสตรีทศา)
 func ComputeHoroscope(req CalculateReq) CalculateResp {
+	return computeHoroscopeWithNode(req, false)
+}
+
+// ComputeHoroscopeTrueNode คำนวณดวงชะตาพระเวทโดยใช้ตำแหน่งราหู/เกตุแบบ True Node เพื่อความแม่นยำระดับลิปดา
+func ComputeHoroscopeTrueNode(req CalculateReq) CalculateResp {
+	return computeHoroscopeWithNode(req, true)
+}
+
+func computeHoroscopeWithNode(req CalculateReq, useTrueNode bool) CalculateResp {
 	jd, ayanamsa := ComputeJulianDayAndAyanamsa(
 		req.Year, req.Month, req.Day, req.HourThai, req.TimeZone,
 	)
@@ -31,7 +40,7 @@ func ComputeHoroscope(req CalculateReq) CalculateResp {
 	ascSignIdx, _ := ParseLongitude(ascDeg)
 
 	// 2. คำนวณตำแหน่งดาว (Planets) พร้อมมาตรฐานดาว (Dignity), ดาวดับ (Combust) และภพที่สถิต
-	planetRes := CalculateSiderealPlanets(jd)
+	planetRes := CalculateSiderealPlanetsWithNode(jd, useTrueNode)
 
 	var sunLon, moonLon float64
 	for _, p := range planetRes {

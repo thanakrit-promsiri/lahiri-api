@@ -2,6 +2,8 @@ package calculator
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 )
 
 // PositionDetail เก็บรายละเอียดองศา ลิปดา ฟิลิปดา และราศี (ทั้งอังกฤษและไทย)
@@ -346,4 +348,187 @@ type TransitDashaPromptData struct {
 	TransitHouseByShort map[string]int
 	TransitPlanets      []TransitPromptBody
 	VedicBodies         []TransitPromptBody
+}
+
+// --- Gephi Synastry Network Models ---
+
+// GephiPersonReq เก็บข้อมูลวันเวลาและพิกัดเกิดของบุคคลสำหรับสร้างกราฟ Gephi
+type GephiPersonReq struct {
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+	CalculateReq
+}
+
+// GephiReq เก็บข้อมูลบุคคล (2 คนขึ้นไป) สำหรับส่งออกโครงข่ายโหราศาสตร์พระเวท (Gephi)
+type GephiReq struct {
+	Persons []GephiPersonReq `json:"persons"`
+}
+
+// Validate ตรวจสอบความถูกต้องของรายชื่อบุคคลทั้งหมดและป้องกัน ID ซ้ำกัน
+func (r GephiReq) Validate() error {
+	if len(r.Persons) < 2 {
+		return errors.New("at least 2 persons are required")
+	}
+
+	seen := make(map[string]bool, len(r.Persons))
+	for i, p := range r.Persons {
+		id := strings.TrimSpace(p.ID)
+		if id == "" {
+			id = fmt.Sprintf("P%d", i+1)
+		}
+		if strings.ContainsAny(id, " \t\r\n") {
+			return fmt.Errorf("person %d (%s): id must not contain whitespace", i+1, id)
+		}
+		if seen[id] {
+			return fmt.Errorf("duplicate person id: %s", id)
+		}
+		seen[id] = true
+
+		if err := p.CalculateReq.Validate(); err != nil {
+			return fmt.Errorf("person %d (%s): %w", i+1, id, err)
+		}
+	}
+	return nil
+}
+
+// GephiColor แทนค่าสี RGB สำหรับการแสดงผลใน Gephi (<viz:color>)
+type GephiColor struct {
+	R int
+	G int
+	B int
+}
+
+// GephiNode แทนโหนด (ลัคนาหรือดาวเคราะห์ 1 ดวงของบุคคล) ในกราฟ Gephi
+type GephiNode struct {
+	ID            string
+	Label         string
+	PersonID      string
+	PersonName    string
+	Body          string
+	BodyThai      string
+	Rasi          int
+	RasiName      string
+	RasiThai      string
+	Degree        float64
+	Longitude     float64
+	Nakshatra     int
+	NakshatraName string
+	NakshatraPada int
+	NakshatraLord string
+	Dignity       string
+	DignityThai   string
+	Bala          float64
+	NodeSize      float64
+	House         int
+	IsRetrograde  bool
+	IsCombust     bool
+	IsVargottama  bool
+	D9Rasi        int
+	D9RasiName    string
+	D9Dignity     string
+	Color         GephiColor
+}
+
+// GephiEdge แทนเส้นเชื่อมความสัมพันธ์ระหว่างโหนด (Yuti, Graha Drishti, Parivartana)
+type GephiEdge struct {
+	ID           string
+	Source       string
+	Target       string
+	Type         string // "directed" หรือ "undirected"
+	Weight       float64
+	Label        string
+	Relation     string // "Yuti", "Graha Drishti", "Parivartana"
+	EdgeType     string // "Harmonious", "Neutral", "Challenging"
+	Scope        string // "inter" หรือ "intra"
+	Polarity     int    // 1, 0, -1
+	HasOrb       bool
+	Orb          float64
+	DrishtiHouse int // 3, 4, 5, 7, 8, 9, 10 (เฉพาะ Graha Drishti)
+	ColorLabel   string
+	Color        GephiColor
+}
+
+// GephiGraph เก็บโครงสร้างกราฟฉบับสมบูรณ์พร้อมโหนดและเส้นเชื่อมสำหรับส่งออก GEXF
+type GephiGraph struct {
+	Nodes []GephiNode
+	Edges []GephiEdge
+}
+
+// GephiHouseNode แทนโหนดในกราฟ Bipartite ภพเรือน (แยกเป็นโหนด "Planet" และโหนด "House")
+type GephiHouseNode struct {
+	ID            string
+	Label         string
+	NodeKind      string // "Planet" หรือ "House"
+	PersonID      string
+	PersonName    string
+	Body          string // "Sun".."Ketu" หรือ "H1".."H12"
+	LabelThai     string
+	House         int
+	HouseNameThai string
+	HouseGroup    string
+	Rasi          int
+	RasiName      string
+	RasiThai      string
+	SignLord      string
+	Degree        float64
+	Nakshatra     int
+	Dignity       string
+	Bala          float64
+	NodeSize      float64
+	IsRetrograde  bool
+	IsCombust     bool
+	IsVargottama  bool
+	Color         GephiColor
+}
+
+// GephiHouseGraph เก็บโครงสร้างกราฟ Bipartite ความสัมพันธ์ระหว่างดาวเคราะห์กับภพเรือนสำหรับส่งออก GEXF
+type GephiHouseGraph struct {
+	Nodes []GephiHouseNode
+	Edges []GephiEdge
+}
+
+// GephiKarmaNode แทนโหนดในผังกรรม (Topology of Karma) พร้อมข้อมูล True Node และ D9 Layer
+type GephiKarmaNode struct {
+	ID            string     `json:"id"`
+	Label         string     `json:"label"`
+	PersonID      string     `json:"person"`
+	PersonName    string     `json:"person_name"`
+	Body          string     `json:"body"`
+	BodyThai      string     `json:"body_thai"`
+	GrahaType     string     `json:"graha_type"`    // "Benefic", "Malefic", "Karmic Axis"
+	DignityScore  int        `json:"dignity_score"` // -5 ถึง +5
+	ForceRole     string     `json:"force_role"`    // "Attract" หรือ "Repel" (ForceAtlas2)
+	NodeSize      float64    `json:"node_size"`
+	Rasi          int        `json:"rasi"`
+	RasiName      string     `json:"rasi_name"`
+	Degree        float64    `json:"degree"`
+	Longitude     float64    `json:"longitude"`
+	Nakshatra     int        `json:"nakshatra"`
+	NakshatraName string     `json:"nakshatra_name"`
+	NakshatraPada int        `json:"nakshatra_pada"`
+	NakshatraLord string     `json:"nakshatra_lord"`
+	Dignity       string     `json:"dignity"`
+	House         int        `json:"house"`
+	IsRetrograde  bool       `json:"is_retrograde"`
+	IsCombust     bool       `json:"is_combust"`
+	IsVargottama  bool       `json:"is_vargottama"`
+	D9Rasi        int        `json:"d9_rasi"`
+	D9RasiName    string     `json:"d9_rasi_name"`
+	D9Degree      float64    `json:"d9_degree"`
+	D9Longitude   float64    `json:"d9_longitude"`
+	D9Dignity     string     `json:"d9_dignity"`
+	Color         GephiColor `json:"color"`
+}
+
+// GephiKarmaEdge แทนเส้นเชื่อมเชิงกรรม (Karmic Axis Alignment, Karmic Taskmaster, Nakshatra Dispositor)
+type GephiKarmaEdge struct {
+	GephiEdge
+	Layer     string `json:"layer"`      // "D1", "D9", "D1+D9", "Nakshatra/D9"
+	ForceRole string `json:"force_role"` // "Attract" หรือ "Repel"
+}
+
+// GephiKarmaGraph เก็บโครงสร้างผังกรรมฉบับสมบูรณ์สำหรับ Gephi (GEXF / Nodes+Edges CSV / JSON)
+type GephiKarmaGraph struct {
+	Nodes []GephiKarmaNode `json:"nodes"`
+	Edges []GephiKarmaEdge `json:"edges"`
 }

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"lahiri-api/internal/calculator"
@@ -69,6 +70,21 @@ func HandleCalculateTransitDashaPrompt(w http.ResponseWriter, r *http.Request) {
 	NewHandler(Log, nil).HandleCalculateTransitDashaPrompt(w, r)
 }
 
+// HandleExportGephi เป็นฟังก์ชันระดับ Package สำหรับส่งออกโครงข่ายโหราศาสตร์พระเวทเป็นไฟล์ GEXF สำหรับ Gephi
+func HandleExportGephi(w http.ResponseWriter, r *http.Request) {
+	NewHandler(Log, nil).HandleExportGephi(w, r)
+}
+
+// HandleExportGephiHouses เป็นฟังก์ชันระดับ Package สำหรับส่งออกโครงข่ายภพเรือนเป็นไฟล์ GEXF สำหรับ Gephi
+func HandleExportGephiHouses(w http.ResponseWriter, r *http.Request) {
+	NewHandler(Log, nil).HandleExportGephiHouses(w, r)
+}
+
+// HandleExportGephiKarma เป็นฟังก์ชันระดับ Package สำหรับส่งออกผังกรรม (Topology of Karma) สำหรับ Gephi
+func HandleExportGephiKarma(w http.ResponseWriter, r *http.Request) {
+	NewHandler(Log, nil).HandleExportGephiKarma(w, r)
+}
+
 // normalizeReq ปรับค่าเริ่มต้น เช่น แปลงปี พ.ศ. เป็น ค.ศ. อัตโนมัติหากเกิน 2400
 func normalizeReq(req *CalculateReq) {
 	if req.Year > 2400 {
@@ -76,6 +92,13 @@ func normalizeReq(req *CalculateReq) {
 	}
 	if req.HouseSystem == "" {
 		req.HouseSystem = "W"
+	}
+}
+
+// normalizeGephiReq ปรับค่าเริ่มต้นให้ข้อมูลบุคคลทุกคนในคำขอส่งออก Gephi
+func normalizeGephiReq(req *GephiReq) {
+	for i := range req.Persons {
+		normalizeReq(&req.Persons[i].CalculateReq)
 	}
 }
 
@@ -415,6 +438,146 @@ func (h *Handler) HandleCalculateTransitDashaPrompt(w http.ResponseWriter, r *ht
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Error("Failed to encode transit dasha prompt response JSON", zap.Error(err))
+	}
+}
+
+// decodeAndValidateGephiReq อ่านและตรวจสอบความถูกต้องของ Request สำหรับการส่งออก GEXF
+func (h *Handler) decodeAndValidateGephiReq(w http.ResponseWriter, r *http.Request) (GephiReq, bool) {
+	if r.Method != http.MethodPost {
+		h.logger.Warn("Invalid HTTP method attempted", zap.String("method", r.Method))
+		writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return GephiReq{}, false
+	}
+
+	var wrapper GephiWrapperReq
+	if err := json.NewDecoder(r.Body).Decode(&wrapper); err != nil {
+		h.logger.Error("Failed to decode gephi request body", zap.Error(err))
+		writeJSONError(w, http.StatusBadRequest, "Invalid JSON payload: "+err.Error())
+		return GephiReq{}, false
+	}
+
+	req := wrapper.GephiReq
+	if len(req.Persons) == 0 && wrapper.WrappedReq != nil {
+		req = *wrapper.WrappedReq
+	}
+
+	normalizeGephiReq(&req)
+	if err := req.Validate(); err != nil {
+		h.logger.Warn("Invalid gephi request parameters", zap.Error(err))
+		writeJSONError(w, http.StatusBadRequest, err.Error())
+		return GephiReq{}, false
+	}
+
+	return req, true
+}
+
+// HandleExportGephi ประมวลผลและส่งออกไฟล์ GEXF XML (.gexf) สำหรับเปิดในซอฟต์แวร์ Gephi (POST /api/v1/hora/gephi)
+func (h *Handler) HandleExportGephi(w http.ResponseWriter, r *http.Request) {
+	req, ok := h.decodeAndValidateGephiReq(w, r)
+	if !ok {
+		return
+	}
+
+	h.logger.Info("Received Gephi GEXF export request",
+		zap.Int("person_count", len(req.Persons)),
+	)
+
+	graph := calculator.ComputeGephiGraph(req)
+	gexfBytes, err := FormatGEXF(graph)
+	h.writeGEXFResponse(w, "vedic-synastry.gexf", gexfBytes, err)
+}
+
+// HandleExportGephiHouses ประมวลผลและส่งออกไฟล์ GEXF XML (.gexf) โครงข่ายภพเรือนและดาวเจ้าเรือน (POST /api/v1/hora/gephi_houses)
+func (h *Handler) HandleExportGephiHouses(w http.ResponseWriter, r *http.Request) {
+	req, ok := h.decodeAndValidateGephiReq(w, r)
+	if !ok {
+		return
+	}
+
+	h.logger.Info("Received Gephi House GEXF export request",
+		zap.Int("person_count", len(req.Persons)),
+	)
+
+	graph := calculator.ComputeGephiHouseGraph(req)
+	gexfBytes, err := FormatHouseGEXF(graph)
+	h.writeGEXFResponse(w, "vedic-houses-synastry.gexf", gexfBytes, err)
+}
+
+// HandleExportGephiKarma ประมวลผลและส่งออกผังกรรม (Topology of Karma) รองรับ GEXF (default), ?format=zip, nodes_csv, edges_csv และ json
+func (h *Handler) HandleExportGephiKarma(w http.ResponseWriter, r *http.Request) {
+	req, ok := h.decodeAndValidateGephiReq(w, r)
+	if !ok {
+		return
+	}
+
+	format := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("format")))
+	h.logger.Info("Received Gephi Karma export request",
+		zap.Int("person_count", len(req.Persons)),
+		zap.String("format", format),
+	)
+
+	graph := calculator.ComputeGephiKarmaGraph(req)
+
+	switch format {
+	case "", "gexf":
+		gexfBytes, err := FormatKarmaGEXF(graph)
+		h.writeGEXFResponse(w, "vedic-karma-topology.gexf", gexfBytes, err)
+	case "zip":
+		zipBytes, err := FormatKarmaCSVZip(graph)
+		h.writeAttachmentResponse(w, "application/zip", "vedic-karma-topology.zip", zipBytes, err)
+	case "nodes_csv":
+		csvBytes, err := FormatKarmaNodesCSV(graph.Nodes)
+		h.writeAttachmentResponse(w, "text/csv; charset=utf-8", "karma_nodes.csv", csvBytes, err)
+	case "edges_csv":
+		csvBytes, err := FormatKarmaEdgesCSV(graph.Edges)
+		h.writeAttachmentResponse(w, "text/csv; charset=utf-8", "karma_edges.csv", csvBytes, err)
+	case "json":
+		h.writeKarmaJSONResponse(w, graph)
+	default:
+		writeJSONError(w, http.StatusBadRequest, "unsupported format: use gexf, zip, nodes_csv, edges_csv, or json")
+	}
+}
+
+func (h *Handler) writeKarmaJSONResponse(w http.ResponseWriter, graph GephiKarmaGraph) {
+	nodesCSV, err := FormatKarmaNodesCSV(graph.Nodes)
+	if err != nil {
+		h.logger.Error("Failed to encode karma nodes CSV", zap.Error(err))
+		writeJSONError(w, http.StatusInternalServerError, "Failed to encode karma CSV")
+		return
+	}
+	edgesCSV, err := FormatKarmaEdgesCSV(graph.Edges)
+	if err != nil {
+		h.logger.Error("Failed to encode karma edges CSV", zap.Error(err))
+		writeJSONError(w, http.StatusInternalServerError, "Failed to encode karma CSV")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if err := json.NewEncoder(w).Encode(map[string]any{
+		"status":    "success",
+		"graph":     graph,
+		"nodes_csv": string(nodesCSV),
+		"edges_csv": string(edgesCSV),
+	}); err != nil {
+		h.logger.Error("Failed to encode karma JSON response", zap.Error(err))
+	}
+}
+
+func (h *Handler) writeGEXFResponse(w http.ResponseWriter, filename string, gexfBytes []byte, err error) {
+	h.writeAttachmentResponse(w, "application/gexf+xml; charset=utf-8", filename, gexfBytes, err)
+}
+
+func (h *Handler) writeAttachmentResponse(w http.ResponseWriter, contentType, filename string, payload []byte, err error) {
+	if err != nil {
+		h.logger.Error("Failed to encode export payload", zap.String("filename", filename), zap.Error(err))
+		writeJSONError(w, http.StatusInternalServerError, "Failed to encode export payload")
+		return
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	if _, err := w.Write(payload); err != nil {
+		h.logger.Error("Failed to write export response", zap.String("filename", filename), zap.Error(err))
 	}
 }
 

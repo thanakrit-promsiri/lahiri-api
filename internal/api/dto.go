@@ -67,3 +67,23 @@ type TransitMonthWrapperResp struct {
 type ApiMonthlyTransit = calculator.MonthlyTransit
 type ApiTransitDasha = calculator.TransitDasha
 type ApiTransitPlanet = calculator.TransitPlanet
+
+// --- Gephi Export Request Models ---
+
+type GephiPersonReq = calculator.GephiPersonReq
+type GephiReq = calculator.GephiReq
+type GephiGraph = calculator.GephiGraph
+type GephiNode = calculator.GephiNode
+type GephiEdge = calculator.GephiEdge
+type GephiHouseGraph = calculator.GephiHouseGraph
+type GephiHouseNode = calculator.GephiHouseNode
+type GephiKarmaGraph = calculator.GephiKarmaGraph
+type GephiKarmaNode = calculator.GephiKarmaNode
+type GephiKarmaEdge = calculator.GephiKarmaEdge
+type GephiColor = calculator.GephiColor
+
+// GephiWrapperReq รองรับทั้ง JSON แบบ Flat ({"persons":[...]}) และแบบห่อใน {"gephiReq":{"persons":[...]}}
+type GephiWrapperReq struct {
+	GephiReq
+	WrappedReq *GephiReq `json:"gephiReq,omitempty"`
+}

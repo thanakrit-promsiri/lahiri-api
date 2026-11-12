@@ -22,12 +22,21 @@ lahiri-api/
 │   │   ├── api.go         # HTTP Handlers (Controller / Presentation Layer), Validation, Routing
 │   │   ├── api_test.go    # Integration & Unit Tests สำหรับ API Endpoints
 │   │   ├── dto.go         # Request / Response Struct Type Aliases พร้อม Validate() method
+│   │   ├── gexf.go        # Format GEXF 1.2 XML Exporter สำหรับนำเข้าซอฟต์แวร์ Gephi
+│   │   ├── gexf_test.go   # Integration & Unit Tests สำหรับ Endpoint ส่งออก GEXF
+│   │   ├── karma_csv.go   # Format Nodes/Edges CSV และ ZIP Archive สำหรับ Gephi Data Laboratory
 │   │   ├── prompt.go      # Format AI Prompts (Presenter) Roman Ultra-Compact (Drishti, Orb, PD)
 │   │   └── prompt_test.go # Unit Test สำหรับตรวจรูปแบบและฟังก์ชันสร้าง AI Prompt
 │   └── calculator/
 │       ├── config.go      # ข้อมูลราศี, นักษัตร, ดาวเจ้าเรือน, คำแปลไทย, รหัสย่อสากล
 │       ├── dasha.go       # คำนวณวิมโสตรีทศา 120 ปี (Mahadasha, Antardasha, Pratyantardasha)
 │       ├── dignity.go     # คำนวณมาตรฐานดาว D1/D9 (อุจจ์/เกษตร/มิตร/นิจ), ดาวดับ (Combust)
+│       ├── gephi.go       # คำนวณโครงข่ายโหราศาสตร์พระเวท (Nodes/Bala, Yuti, Drishti, Parivartana, Graha Maitri)
+│       ├── gephi_test.go  # Unit Tests สำหรับตรรกะกราฟ Gephi
+│       ├── gephi_houses.go      # คำนวณโครงข่ายภพเรือน Bipartite (9 ดาว + 12 ภพ, House Lord & Placed In)
+│       ├── gephi_houses_test.go # Unit Tests สำหรับตรรกะกราฟภพเรือน Gephi
+│       ├── gephi_karma.go       # คำนวณผังกรรม Topology of Karma (True Nodes, D1+D9, Axis/Taskmaster/Dispositor)
+│       ├── gephi_karma_test.go  # Unit Tests สำหรับตรรกะผังกรรม Gephi
 │       ├── helpers.go     # Concurrency Mutex (sweMu), Julian Day, Ayanamsa wrapper
 │       ├── house.go       # คำนวณลัคนาและมุมภพ (ASC, MC, DSC, IC)
 │       ├── nakshatra.go   # คำนวณ 27 นักษัตรฤกษ์ และ บาทฤกษ์ (Pada 1-4)
@@ -144,6 +153,29 @@ Conj: H1(ASC+Ra[orb 10°54']) H11(Su+Me[orb 12°08'], Su+Sa[orb 3°01',DeepCombu
 Drishti(Special/Mutual): Sa->H1(Ra),H5(Mo),H8 | Ma->H5(Mo),H8,H9 | Ju->H8,H10(Ve),H12 | Mutual: H1(Ra)<->H7(Ke), H4(Ju)<->H10(Ve), H5(Mo)<->H11(Su,Me,Sa)
 Dasha(Moon:Ardra): MD:Sa(2022-11-25..2041-11-24)/AD:Me(2025-11-27..2028-08-06)/PD:Ve
 ```
+
+### 4.8 `POST /api/v1/hora/gephi`
+ส่งออกข้อมูลโครงสร้างเครือข่ายโหราศาสตร์พระเวทสำหรับ 2 คนขึ้นไป (เช่น Triad Synastry 3 คน = 30 Nodes) เป็นไฟล์ **GEXF 1.2 XML** (`application/gexf+xml`, `attachment; filename="vedic-synastry.gexf"`) เปิดในซอฟต์แวร์ Gephi ได้ทันที
+- **Nodes (คนละ 10 โหนด):** `<PersonID>_Lagna`, `<PersonID>_Sun` .. `<PersonID>_Ketu` พร้อม Attributes (`Rasi` 1-12, `Degree` 0-30, `Nakshatra` 1-27, `Dignity`, `Bala`, `<viz:size>`, `<viz:color>`, D9, House, Retrograde/Combust/Vargottama)
+- **Edges (Inter-person & Intra-chart):**
+  - `Yuti`: Undirected, น้ำหนัก `3.0–10.0` แปรผกผันกับ Orb (`≤ 3°` = `10.0`)
+  - `Graha Drishti`: Directed (เกณฑ์ 7 ทุกดาว; อังคาร 4,7,8; พฤหัสบดี/ราหู/เกตุ 5,7,9; เสาร์ 3,7,10), น้ำหนัก `4.0–7.0` แปรผกผันกับ Orb องศาระหว่างราศี
+  - `Parivartana`: Undirected (สลับเกษตรระหว่างเจ้าเรือน), น้ำหนัก `8.0`
+- **Edge Type (Graha Maitri 3 สถานะ):** `Harmonious` (สีน้ำเงิน), `Neutral` (สีเทา), `Challenging` (สีแดง) โดยจุดลัคนาอิงเจ้าเรือนลัคนา (`Lagnesh`)
+
+### 4.9 `POST /api/v1/hora/gephi_houses`
+ส่งออกข้อมูลโครงสร้างเครือข่ายภพเรือนโหราศาสตร์พระเวท (Bipartite House-Planet Network) สำหรับ 2 คนขึ้นไป เป็นไฟล์ **GEXF 1.2 XML** (`application/gexf+xml`, `attachment; filename="vedic-houses-synastry.gexf"`) เปิดในซอฟต์แวร์ Gephi ได้ทันที
+- **Nodes (คนละ 21 โหนด):** 9 ดาวเคราะห์ (`<PersonID>_Sun` .. `<PersonID>_Ketu`) และ 12 ภพเรือน (`<PersonID>_H1` .. `<PersonID>_H12`) แยกด้วย `node_kind` (`Planet`/`House`), `house`, `house_name_thai`, `house_group`, `sign_lord`, `rasi`, `dignity`, `bala`
+- **Edges (Directed House Lord Flow — Intra-chart & Inter-person):**
+  - `House Lord`: `House -> LordPlanet` ภายในดวงเจ้าชะตา
+  - `Placed In`: `Planet -> TargetHouse` ทั้งในดวงตัวเองและข้ามบุคคลตามราศีที่ดาวสถิต (น้ำหนัก `4.0–10.0` แปรผกผันกับ Orb)
+- **Edge Type (3 สถานะ):** คำนวณจากกลุ่มภพเรือน (`Trikona/Labha +1`, `Dusthana -1`, `Kendra/Dhana 0`) รวมกับกำลัง/ความเป็นมิตรของดาว (`Harmonious` สีน้ำเงิน / `Neutral` สีเทา / `Challenging` สีแดง)
+
+### 4.10 `POST /api/v1/hora/gephi_karma`
+ส่งออก**ผังกรรม (Topology of Karma)** สำหรับ 2 คนขึ้นไป โดยใช้ **True Nodes** ของราหู/เกตุ และซ้อนชั้น **D-1 + D-9 Navamsa**:
+- **Format รองรับ:** ค่าเริ่มต้นเป็น GEXF 1.2 XML (`vedic-karma-topology.gexf`) และรองรับ `?format=zip` (`karma_nodes.csv` + `karma_edges.csv` 2 ไฟล์), `?format=nodes_csv`, `?format=edges_csv`, `?format=json`
+- **Nodes (คนละ 10 โหนด):** มี `Graha_Type` (`Benefic`/`Malefic`/`Karmic Axis`), `Dignity_Score` (`-5..+5`), `Force_Role` (`Attract`/`Repel` สำหรับ ForceAtlas2), พิกัด D1 และ D9 (`D9_Rasi`, `D9_Degree`, `D9_Dignity`)
+- **Edges (3 ระบบกรรมข้ามบุคคล):** `Karmic Axis Alignment` (กุม/เล็งราหู-เกตุ W=10 ใน D1, W=8 ใน D9), `Karmic Taskmaster` (Saturn เกณฑ์ 3/7/10 W=7..9), และ `Nakshatra Dispositor` (Star Lord มาตรฐานดี -> เจ้าของนักษัตร W=6..9)
 
 ---
 
