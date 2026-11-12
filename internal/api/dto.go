@@ -80,6 +80,9 @@ type GephiHouseNode = calculator.GephiHouseNode
 type GephiKarmaGraph = calculator.GephiKarmaGraph
 type GephiKarmaNode = calculator.GephiKarmaNode
 type GephiKarmaEdge = calculator.GephiKarmaEdge
+type GephiNakshatraGraph = calculator.GephiNakshatraGraph
+type GephiNakshatraNode = calculator.GephiNakshatraNode
+type GephiNakshatraEdge = calculator.GephiNakshatraEdge
 type GephiColor = calculator.GephiColor
 
 // GephiWrapperReq รองรับทั้ง JSON แบบ Flat ({"persons":[...]}) และแบบห่อใน {"gephiReq":{"persons":[...]}}

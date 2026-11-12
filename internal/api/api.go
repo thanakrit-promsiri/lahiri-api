@@ -85,6 +85,11 @@ func HandleExportGephiKarma(w http.ResponseWriter, r *http.Request) {
 	NewHandler(Log, nil).HandleExportGephiKarma(w, r)
 }
 
+// HandleExportGephiNakshatra เป็นฟังก์ชันระดับ Package สำหรับส่งออกโครงข่ายนักษัตรเชื่อมจุด/ดาวเป็นไฟล์ GEXF สำหรับ Gephi
+func HandleExportGephiNakshatra(w http.ResponseWriter, r *http.Request) {
+	NewHandler(Log, nil).HandleExportGephiNakshatra(w, r)
+}
+
 // normalizeReq ปรับค่าเริ่มต้น เช่น แปลงปี พ.ศ. เป็น ค.ศ. อัตโนมัติหากเกิน 2400
 func normalizeReq(req *CalculateReq) {
 	if req.Year > 2400 {
@@ -561,6 +566,22 @@ func (h *Handler) writeKarmaJSONResponse(w http.ResponseWriter, graph GephiKarma
 	}); err != nil {
 		h.logger.Error("Failed to encode karma JSON response", zap.Error(err))
 	}
+}
+
+// HandleExportGephiNakshatra ประมวลผลและส่งออกไฟล์ GEXF XML (.gexf) โครงข่ายนักษัตรเชื่อมจุด/ดาวของแต่ละคน (POST /api/v1/hora/gephi_nakshatra)
+func (h *Handler) HandleExportGephiNakshatra(w http.ResponseWriter, r *http.Request) {
+	req, ok := h.decodeAndValidateGephiReq(w, r)
+	if !ok {
+		return
+	}
+
+	h.logger.Info("Received Gephi Nakshatra GEXF export request",
+		zap.Int("person_count", len(req.Persons)),
+	)
+
+	graph := calculator.ComputeGephiNakshatraGraph(req)
+	gexfBytes, err := FormatNakshatraGEXF(graph)
+	h.writeGEXFResponse(w, "vedic-nakshatra-synastry.gexf", gexfBytes, err)
 }
 
 func (h *Handler) writeGEXFResponse(w http.ResponseWriter, filename string, gexfBytes []byte, err error) {

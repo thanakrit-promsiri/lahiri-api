@@ -37,6 +37,7 @@ func main() {
 	mux.HandleFunc("/api/v1/hora/gephi", handler.HandleExportGephi)
 	mux.HandleFunc("/api/v1/hora/gephi_houses", handler.HandleExportGephiHouses)
 	mux.HandleFunc("/api/v1/hora/gephi_karma", handler.HandleExportGephiKarma)
+	mux.HandleFunc("/api/v1/hora/gephi_nakshatra", handler.HandleExportGephiNakshatra)
 
 	port := os.Getenv("PORT")
 	if port == "" {

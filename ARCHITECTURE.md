@@ -81,7 +81,7 @@ architecture-beta
 | เลเยอร์ / โมดูล | ไฟล์หลัก | บทบาทและความรับผิดชอบ |
 | :--- | :--- | :--- |
 | **Entrypoint & HTTP Server** | [`main.go`](./main.go) | เปิดพอร์ต `PORT` (ค่าเริ่มต้น `8083`), ตั้งค่า Timeout (`ReadHeaderTimeout: 5s`, `ReadTimeout: 10s`, `WriteTimeout: 15s`, `IdleTimeout: 60s`), รองรับ Graceful Shutdown (`10s`) และ hook [`RunHoroscopedebug`](./main.go) |
-| **Presentation & Routing** | [`internal/api/api.go`](./internal/api/api.go), [`dto.go`](./internal/api/dto.go), [`gexf.go`](./internal/api/gexf.go), [`karma_csv.go`](./internal/api/karma_csv.go) | ลงทะเบียน 10 `POST` Endpoints, ตรวจสอบ Method/JSON, แปลงปี พ.ศ. (`> 2400`) เป็น ค.ศ. อัตโนมัติ, ตั้งค่าเริ่มต้น (`house_system="W"`, `time_zone=7.0` สำหรับดาวจร), Validate ช่วงข้อมูล และส่งออก GEXF 1.2 XML / CSV ZIP |
+| **Presentation & Routing** | [`internal/api/api.go`](./internal/api/api.go), [`dto.go`](./internal/api/dto.go), [`gexf.go`](./internal/api/gexf.go), [`karma_csv.go`](./internal/api/karma_csv.go) | ลงทะเบียน 11 `POST` Endpoints, ตรวจสอบ Method/JSON, แปลงปี พ.ศ. (`> 2400`) เป็น ค.ศ. อัตโนมัติ, ตั้งค่าเริ่มต้น (`house_system="W"`, `time_zone=7.0` สำหรับดาวจร), Validate ช่วงข้อมูล และส่งออก GEXF 1.2 XML / CSV ZIP |
 | **AI Prompt Presenter** | [`internal/api/prompt.go`](./internal/api/prompt.go) | แปลงผลคำนวณเป็นข้อความแบบ **Roman Ultra-Compact** (`FormatRomanCompactPrompt` และ `FormatTransitDashaCompactPrompt`) พร้อม Orb, DeepCombust, Drishti (เกณฑ์พิเศษ/เล็งข้ามภพ), `[nH..->tH..]` และ Pratyantardasha (`PD`) |
 | **Domain Orchestration** | [`internal/calculator/service.go`](./internal/calculator/service.go) | ประสานงานคำนวณตาม Use Case: `ComputeHoroscope`, `ComputeDasha`, `ComputeAnnualTransit`, `ComputeMonthTransit`, `ComputeMonthTransitWithDasha`, และ `ComputeTransitDashaPromptData` |
 | **Astrology Domain Rules** | [`dignity.go`](./internal/calculator/dignity.go), [`dasha.go`](./internal/calculator/dasha.go), [`nakshatra.go`](./internal/calculator/nakshatra.go), [`navamsa.go`](./internal/calculator/navamsa.go), [`config.go`](./internal/calculator/config.go), [`utils.go`](./internal/calculator/utils.go) | คำนวณมาตรฐานดาว D1/D9 (`Exalted` ถึง `Debilitated`), ดาวดับ (Combust), นวางศ์ D9 (Vargottama), 27 นักษัตรฤกษ์/4 บาท, Whole Sign Houses + เจ้าเรือนเกษตร และวิมโสตรีทศา 120 ปี (MD/AD/PD) |
@@ -99,6 +99,7 @@ architecture-beta
 - `POST /api/v1/hora/gephi` — ส่งออกโครงข่ายโหราศาสตร์พระเวทสำหรับ 2 คนขึ้นไป (Nodes/Bala, Yuti, Graha Drishti, Parivartana, Graha Maitri) เป็นไฟล์ GEXF 1.2 XML (`.gexf`) สำหรับ Gephi
 - `POST /api/v1/hora/gephi_houses` — ส่งออกโครงข่ายภพเรือนและดาวเจ้าเรือนแบบ Bipartite (21 โหนด/คน, House Lord & Placed In) เป็นไฟล์ GEXF 1.2 XML (`.gexf`) สำหรับ Gephi
 - `POST /api/v1/hora/gephi_karma` — ส่งออกผังกรรม Topology of Karma (True Nodes + D1/D9 Layer, Karmic Axis/Taskmaster/Nakshatra Dispositor) รองรับ GEXF 1.2 XML และ `?format=zip` (`karma_nodes.csv` + `karma_edges.csv`)
+- `POST /api/v1/hora/gephi_nakshatra` — ส่งออกโครงข่ายนักษัตรเป็น Hub กลางเชื่อมจุด/ดาวของแต่ละคน (`Point -> Nakshatra`, Pada 1–4, Star Lord) เป็นไฟล์ GEXF 1.2 XML (`.gexf`) สำหรับ Gephi
 
 ---
 

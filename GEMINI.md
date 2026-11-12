@@ -37,6 +37,8 @@ lahiri-api/
 │       ├── gephi_houses_test.go # Unit Tests สำหรับตรรกะกราฟภพเรือน Gephi
 │       ├── gephi_karma.go       # คำนวณผังกรรม Topology of Karma (True Nodes, D1+D9, Axis/Taskmaster/Dispositor)
 │       ├── gephi_karma_test.go  # Unit Tests สำหรับตรรกะผังกรรม Gephi
+│       ├── gephi_nakshatra.go       # คำนวณโครงข่ายนักษัตร Hub Bipartite (Active Nakshatra Hubs + Point -> Nakshatra)
+│       ├── gephi_nakshatra_test.go  # Unit Tests สำหรับตรรกะกราฟนักษัตร Gephi
 │       ├── helpers.go     # Concurrency Mutex (sweMu), Julian Day, Ayanamsa wrapper
 │       ├── house.go       # คำนวณลัคนาและมุมภพ (ASC, MC, DSC, IC)
 │       ├── nakshatra.go   # คำนวณ 27 นักษัตรฤกษ์ และ บาทฤกษ์ (Pada 1-4)
@@ -176,6 +178,11 @@ Dasha(Moon:Ardra): MD:Sa(2022-11-25..2041-11-24)/AD:Me(2025-11-27..2028-08-06)/P
 - **Format รองรับ:** ค่าเริ่มต้นเป็น GEXF 1.2 XML (`vedic-karma-topology.gexf`) และรองรับ `?format=zip` (`karma_nodes.csv` + `karma_edges.csv` 2 ไฟล์), `?format=nodes_csv`, `?format=edges_csv`, `?format=json`
 - **Nodes (คนละ 10 โหนด):** มี `Graha_Type` (`Benefic`/`Malefic`/`Karmic Axis`), `Dignity_Score` (`-5..+5`), `Force_Role` (`Attract`/`Repel` สำหรับ ForceAtlas2), พิกัด D1 และ D9 (`D9_Rasi`, `D9_Degree`, `D9_Dignity`)
 - **Edges (3 ระบบกรรมข้ามบุคคล):** `Karmic Axis Alignment` (กุม/เล็งราหู-เกตุ W=10 ใน D1, W=8 ใน D9), `Karmic Taskmaster` (Saturn เกณฑ์ 3/7/10 W=7..9), และ `Nakshatra Dispositor` (Star Lord มาตรฐานดี -> เจ้าของนักษัตร W=6..9)
+
+### 4.11 `POST /api/v1/hora/gephi_nakshatra`
+ส่งออกข้อมูลโครงสร้างเครือข่าย**นักษัตรเป็น Hub กลาง** (`Shared Bipartite Nakshatra Hub Graph`) สำหรับ 2 คนขึ้นไป เป็นไฟล์ **GEXF 1.2 XML** (`application/gexf+xml`, `attachment; filename="vedic-nakshatra-synastry.gexf"`) เปิดใน Gephi ได้ทันที
+- **Nodes (`node_kind`):** โหนดจุดของทุกคนคนละ 10 จุด (`Point`: `Lagna` + 9 ดาว) + โหนด Hub ของนักษัตรที่ถูกใช้งานจริง (`Nakshatra`: `Nak_01_Ashwini` .. `Nak_27_Revati`, ไม่มีโหนดลอยว่างเปล่า) พร้อม `occupied_count`, `nakshatra_lord`, `nakshatra_pada`
+- **Edges (`Point -> Nakshatra`):** เส้นเชื่อมแบบมีทิศทาง (`Occupied Nakshatra`) ระบุ `pada` 1–4, `nakshatra_lord`, น้ำหนัก `3.5–10.0` (เน้น `Moon`, `Lagna` และกำลังดาว/Vargottama) และสีความเข้ากันได้กับเจ้าเรือนนักษัตร (`Harmonious` Blue / `Neutral` Gray / `Challenging` Red)
 
 ---
 

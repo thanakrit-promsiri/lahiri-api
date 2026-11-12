@@ -442,3 +442,116 @@ func TestHandleExportGephiKarmaFormatsAndErrors(t *testing.T) {
 		t.Errorf("expected 405 for GET, got %d", recGet.Result().StatusCode)
 	}
 }
+
+func TestHandleExportGephiNakshatraBipartiteGEXF(t *testing.T) {
+	payload := `{
+  "persons": [
+    {
+      "id": "P1",
+      "name": "Male (Loei 1988)",
+      "year": 1988,
+      "month": 12,
+      "day": 23,
+      "hour_thai": 10.35,
+      "time_zone": 7.0,
+      "latitude": 17.59812056211902,
+      "longitude": 101.72141606527812,
+      "house_system": "W"
+    },
+    {
+      "id": "P2",
+      "name": "Female (Khon Kaen 1991)",
+      "year": 1991,
+      "month": 4,
+      "day": 19,
+      "hour_thai": 2.15,
+      "time_zone": 7.0,
+      "latitude": 16.46773511946009,
+      "longitude": 102.82996133788332,
+      "house_system": "W"
+    },
+    {
+      "id": "P3",
+      "name": "Female (Kamphaeng Phet 2003)",
+      "year": 2003,
+      "month": 4,
+      "day": 25,
+      "hour_thai": 9.7,
+      "time_zone": 7.0,
+      "latitude": 16.463037262887433,
+      "longitude": 99.52840747732445,
+      "house_system": "W"
+    },
+    {
+      "id": "P4",
+      "name": "Female (Bangkok 1990)",
+      "year": 1990,
+      "month": 9,
+      "day": 26,
+      "hour_thai": 4.816666666666667,
+      "time_zone": 7.0,
+      "latitude": 13.909166021400969,
+      "longitude": 100.61788433453725,
+      "house_system": "W"
+    }
+  ]
+}`
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/gephi_nakshatra", bytes.NewBufferString(payload))
+	rec := httptest.NewRecorder()
+	HandleExportGephiNakshatra(rec, req)
+
+	res := rec.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", res.StatusCode, rec.Body.String())
+	}
+	if ct := res.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/gexf+xml") {
+		t.Errorf("expected Content-Type application/gexf+xml, got %q", ct)
+	}
+	if cd := res.Header.Get("Content-Disposition"); !strings.Contains(cd, "vedic-nakshatra-synastry.gexf") {
+		t.Errorf("expected vedic-nakshatra-synastry.gexf Content-Disposition, got %q", cd)
+	}
+
+	rawXML := rec.Body.String()
+	for _, want := range []string{
+		`id="P1_Lagna"`,
+		`id="P4_Moon"`,
+		`for="node_kind" value="Nakshatra"`,
+		`for="node_kind" value="Point"`,
+		`for="relation" value="Occupied Nakshatra"`,
+		`for="pada"`,
+	} {
+		if !strings.Contains(rawXML, want) {
+			t.Errorf("expected Nakshatra GEXF output to contain %q", want)
+		}
+	}
+
+	var parsed gexfDoc
+	if err := xml.Unmarshal(rec.Body.Bytes(), &parsed); err != nil {
+		t.Fatalf("failed to parse Nakshatra GEXF XML: %v", err)
+	}
+
+	// 4 คน × 10 จุด = 40 Point edges + Hub nodes (> 40 nodes และ Edges == 40)
+	if len(parsed.Graph.Nodes.Items) <= 40 || len(parsed.Graph.Nodes.Items) > 67 {
+		t.Fatalf("unexpected Nakshatra GEXF node count for 4 persons: %d", len(parsed.Graph.Nodes.Items))
+	}
+	if len(parsed.Graph.Edges.Items) != 40 {
+		t.Fatalf("expected 40 Occupied Nakshatra edges for 4 persons, got %d", len(parsed.Graph.Edges.Items))
+	}
+
+	// Error cases
+	reqGet := httptest.NewRequest(http.MethodGet, "/api/v1/hora/gephi_nakshatra", nil)
+	recGet := httptest.NewRecorder()
+	HandleExportGephiNakshatra(recGet, reqGet)
+	if recGet.Result().StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405 for GET, got %d", recGet.Result().StatusCode)
+	}
+
+	badPayload := `{"persons":[{"year":1988,"month":12,"day":23,"hour_thai":10.35,"time_zone":7.0,"latitude":13.75,"longitude":100.5}]}`
+	reqBad := httptest.NewRequest(http.MethodPost, "/api/v1/hora/gephi_nakshatra", bytes.NewBufferString(badPayload))
+	recBad := httptest.NewRecorder()
+	HandleExportGephiNakshatra(recBad, reqBad)
+	if recBad.Result().StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400 when < 2 persons, got %d", recBad.Result().StatusCode)
+	}
+}

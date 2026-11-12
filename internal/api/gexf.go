@@ -190,6 +190,40 @@ var karmaEdgeAttrDefs = append(append([]gexfAttribute(nil), edgeAttrDefs...),
 	gexfAttribute{ID: "force_role", Title: "Force_Role", Type: "string"},
 )
 
+var nakshatraNodeAttrDefs = []gexfAttribute{
+	{ID: "node_kind", Title: "NodeKind", Type: "string"},
+	{ID: "person", Title: "Person", Type: "string"},
+	{ID: "person_name", Title: "PersonName", Type: "string"},
+	{ID: "body", Title: "Body", Type: "string"},
+	{ID: "body_thai", Title: "BodyThai", Type: "string"},
+	{ID: "rasi", Title: "Rasi", Type: "integer"},
+	{ID: "rasi_name", Title: "RasiName", Type: "string"},
+	{ID: "degree", Title: "Degree", Type: "double"},
+	{ID: "longitude", Title: "Longitude", Type: "double"},
+	{ID: "nakshatra", Title: "Nakshatra", Type: "integer"},
+	{ID: "nakshatra_name", Title: "NakshatraName", Type: "string"},
+	{ID: "nakshatra_thai", Title: "NakshatraThai", Type: "string"},
+	{ID: "nakshatra_pada", Title: "NakshatraPada", Type: "integer"},
+	{ID: "nakshatra_lord", Title: "NakshatraLord", Type: "string"},
+	{ID: "nakshatra_lord_thai", Title: "NakshatraLordThai", Type: "string"},
+	{ID: "occupied_count", Title: "OccupiedCount", Type: "integer"},
+	{ID: "dignity", Title: "Dignity", Type: "string"},
+	{ID: "dignity_thai", Title: "DignityThai", Type: "string"},
+	{ID: "bala", Title: "Bala", Type: "double"},
+	{ID: "house", Title: "House", Type: "integer"},
+	{ID: "is_retrograde", Title: "IsRetrograde", Type: "boolean"},
+	{ID: "is_combust", Title: "IsCombust", Type: "boolean"},
+	{ID: "is_vargottama", Title: "IsVargottama", Type: "boolean"},
+	{ID: "d9_rasi", Title: "D9Rasi", Type: "integer"},
+	{ID: "d9_rasi_name", Title: "D9RasiName", Type: "string"},
+	{ID: "d9_dignity", Title: "D9Dignity", Type: "string"},
+}
+
+var nakshatraEdgeAttrDefs = append(append([]gexfAttribute(nil), houseEdgeAttrDefs...),
+	gexfAttribute{ID: "pada", Title: "Pada", Type: "integer"},
+	gexfAttribute{ID: "nakshatra_lord", Title: "NakshatraLord", Type: "string"},
+)
+
 // FormatGEXF แปลงโครงสร้าง GephiGraph เป็นเอกสาร GEXF 1.2 XML ที่พร้อมนำเข้าซอฟต์แวร์ Gephi ทันที
 func FormatGEXF(graph GephiGraph) ([]byte, error) {
 	return formatGEXFWithDate(graph, time.Now().UTC().Format("2006-01-02"))
@@ -203,6 +237,11 @@ func FormatHouseGEXF(graph GephiHouseGraph) ([]byte, error) {
 // FormatKarmaGEXF แปลงโครงสร้าง GephiKarmaGraph (ผังกรรม Topology of Karma) เป็นเอกสาร GEXF 1.2 XML
 func FormatKarmaGEXF(graph GephiKarmaGraph) ([]byte, error) {
 	return formatKarmaGEXFWithDate(graph, time.Now().UTC().Format("2006-01-02"))
+}
+
+// FormatNakshatraGEXF แปลงโครงสร้าง GephiNakshatraGraph (นักษัตรเป็น Hub กลางเชื่อมจุด/ดาวของทุกคน) เป็นเอกสาร GEXF 1.2 XML
+func FormatNakshatraGEXF(graph GephiNakshatraGraph) ([]byte, error) {
+	return formatNakshatraGEXFWithDate(graph, time.Now().UTC().Format("2006-01-02"))
 }
 
 func formatGEXFWithDate(graph GephiGraph, modifiedDate string) ([]byte, error) {
@@ -295,6 +334,71 @@ func toGEXFKarmaNode(n GephiKarmaNode) gexfNode {
 				{For: "d9_rasi_name", Value: n.D9RasiName},
 				{For: "d9_degree", Value: strconv.FormatFloat(n.D9Degree, 'f', -1, 64)},
 				{For: "d9_longitude", Value: strconv.FormatFloat(n.D9Longitude, 'f', -1, 64)},
+				{For: "d9_dignity", Value: n.D9Dignity},
+			},
+		},
+	}
+}
+
+func formatNakshatraGEXFWithDate(graph GephiNakshatraGraph, modifiedDate string) ([]byte, error) {
+	nodes := make([]gexfNode, 0, len(graph.Nodes))
+	for _, n := range graph.Nodes {
+		nodes = append(nodes, toGEXFNakshatraNode(n))
+	}
+
+	edges := make([]gexfEdge, 0, len(graph.Edges))
+	for _, e := range graph.Edges {
+		ge := toGEXFEdge(e.GephiEdge)
+		ge.AttValues.Items = append(ge.AttValues.Items,
+			gexfAttValue{For: "pada", Value: strconv.Itoa(e.Pada)},
+			gexfAttValue{For: "nakshatra_lord", Value: e.NakshatraLord},
+		)
+		edges = append(edges, ge)
+	}
+
+	return marshalGEXFDoc(
+		"Vedic Astrology Nakshatra Hub Network (Sidereal Lahiri / Occupied Nakshatra)",
+		nakshatraNodeAttrDefs,
+		nakshatraEdgeAttrDefs,
+		nodes,
+		edges,
+		modifiedDate,
+	)
+}
+
+func toGEXFNakshatraNode(n GephiNakshatraNode) gexfNode {
+	return gexfNode{
+		ID:    n.ID,
+		Label: n.Label,
+		Size:  gexfVizSize{Value: n.NodeSize},
+		Color: gexfVizColor{R: n.Color.R, G: n.Color.G, B: n.Color.B},
+		AttValues: gexfAttValues{
+			Items: []gexfAttValue{
+				{For: "node_kind", Value: n.NodeKind},
+				{For: "person", Value: n.PersonID},
+				{For: "person_name", Value: n.PersonName},
+				{For: "body", Value: n.Body},
+				{For: "body_thai", Value: n.BodyThai},
+				{For: "rasi", Value: strconv.Itoa(n.Rasi)},
+				{For: "rasi_name", Value: n.RasiName},
+				{For: "degree", Value: strconv.FormatFloat(n.Degree, 'f', -1, 64)},
+				{For: "longitude", Value: strconv.FormatFloat(n.Longitude, 'f', -1, 64)},
+				{For: "nakshatra", Value: strconv.Itoa(n.Nakshatra)},
+				{For: "nakshatra_name", Value: n.NakshatraName},
+				{For: "nakshatra_thai", Value: n.NakshatraThai},
+				{For: "nakshatra_pada", Value: strconv.Itoa(n.NakshatraPada)},
+				{For: "nakshatra_lord", Value: n.NakshatraLord},
+				{For: "nakshatra_lord_thai", Value: n.NakshatraLordThai},
+				{For: "occupied_count", Value: strconv.Itoa(n.OccupiedCount)},
+				{For: "dignity", Value: n.Dignity},
+				{For: "dignity_thai", Value: n.DignityThai},
+				{For: "bala", Value: strconv.FormatFloat(n.Bala, 'f', -1, 64)},
+				{For: "house", Value: strconv.Itoa(n.House)},
+				{For: "is_retrograde", Value: strconv.FormatBool(n.IsRetrograde)},
+				{For: "is_combust", Value: strconv.FormatBool(n.IsCombust)},
+				{For: "is_vargottama", Value: strconv.FormatBool(n.IsVargottama)},
+				{For: "d9_rasi", Value: strconv.Itoa(n.D9Rasi)},
+				{For: "d9_rasi_name", Value: n.D9RasiName},
 				{For: "d9_dignity", Value: n.D9Dignity},
 			},
 		},

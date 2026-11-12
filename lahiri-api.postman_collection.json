@@ -458,7 +458,43 @@
       "response": []
     },
     {
-      "name": "12. Validation Error Example (400 Bad Request)",
+      "name": "12. Export Gephi Nakshatra Network Graph (GEXF XML)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"persons\": [\n    {\n      \"id\": \"P1\",\n      \"name\": \"Male (Loei 1988)\",\n      \"year\": 1988,\n      \"month\": 12,\n      \"day\": 23,\n      \"hour_thai\": 10.35,\n      \"time_zone\": 7.0,\n      \"latitude\": 17.59812056211902,\n      \"longitude\": 101.72141606527812,\n      \"house_system\": \"W\"\n    },\n    {\n      \"id\": \"P2\",\n      \"name\": \"Female (Khon Kaen 1991)\",\n      \"year\": 1991,\n      \"month\": 4,\n      \"day\": 19,\n      \"hour_thai\": 2.15,\n      \"time_zone\": 7.0,\n      \"latitude\": 16.46773511946009,\n      \"longitude\": 102.82996133788332,\n      \"house_system\": \"W\"\n    },\n    {\n      \"id\": \"P3\",\n      \"name\": \"Female (Kamphaeng Phet 2003)\",\n      \"year\": 2003,\n      \"month\": 4,\n      \"day\": 25,\n      \"hour_thai\": 9.7,\n      \"time_zone\": 7.0,\n      \"latitude\": 16.463037262887433,\n      \"longitude\": 99.52840747732445,\n      \"house_system\": \"W\"\n    },\n    {\n      \"id\": \"P4\",\n      \"name\": \"Female (Bangkok 1990)\",\n      \"year\": 1990,\n      \"month\": 9,\n      \"day\": 26,\n      \"hour_thai\": 4.816666666666667,\n      \"time_zone\": 7.0,\n      \"latitude\": 13.909166021400969,\n      \"longitude\": 100.61788433453725,\n      \"house_system\": \"W\"\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/hora/gephi_nakshatra",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "hora",
+            "gephi_nakshatra"
+          ]
+        },
+        "description": "ส่งออกข้อมูลโครงสร้างเครือข่ายนักษัตรโหราศาสตร์พระเวท (Shared Bipartite Nakshatra Hub Graph) เป็นไฟล์ GEXF 1.2 XML (.gexf) โดยมีโหนดนักษัตรที่ถูกใช้งานจริงเป็น Hub กลาง เชื่อมโยงกับลัคนาและดาวทั้ง 9 ดวงของแต่ละบุคคล (Point -> Nakshatra) พร้อมระบุ Pada 1-4, Star Lord และน้ำหนักตามกำลังดาว/จันทร์/ลัคนา"
+      },
+      "response": []
+    },
+    {
+      "name": "13. Validation Error Example (400 Bad Request)",
       "request": {
         "method": "POST",
         "header": [

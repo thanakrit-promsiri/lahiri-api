@@ -532,3 +532,50 @@ type GephiKarmaGraph struct {
 	Nodes []GephiKarmaNode `json:"nodes"`
 	Edges []GephiKarmaEdge `json:"edges"`
 }
+
+// GephiNakshatraNode แทนโหนดในกราฟนักษัตร (แยกเป็น "Point" สำหรับจุด/ดาวของแต่ละคน และ "Nakshatra" สำหรับ Hub กลาง 1-27)
+type GephiNakshatraNode struct {
+	ID                string
+	Label             string
+	NodeKind          string // "Point" หรือ "Nakshatra"
+	PersonID          string // "P1".."Pn" หรือ "NAKSHATRA" สำหรับโหนด Hub
+	PersonName        string
+	Body              string // "Lagna", "Sun".."Ketu" หรือ "Nak_01".."Nak_27"
+	BodyThai          string
+	Rasi              int
+	RasiName          string
+	Degree            float64
+	Longitude         float64
+	Nakshatra         int
+	NakshatraName     string
+	NakshatraThai     string
+	NakshatraPada     int
+	NakshatraLord     string
+	NakshatraLordThai string
+	OccupiedCount     int // จำนวนดาว/จุดทั้งหมดที่เข้ามาสถิตในนักษัตรนี้
+	Dignity           string
+	DignityThai       string
+	Bala              float64
+	NodeSize          float64
+	House             int
+	IsRetrograde      bool
+	IsCombust         bool
+	IsVargottama      bool
+	D9Rasi            int
+	D9RasiName        string
+	D9Dignity         string
+	Color             GephiColor
+}
+
+// GephiNakshatraEdge แทนเส้นเชื่อม Point -> Nakshatra Hub พร้อมข้อมูล Pada และ Star Lord
+type GephiNakshatraEdge struct {
+	GephiEdge
+	Pada          int
+	NakshatraLord string
+}
+
+// GephiNakshatraGraph เก็บโครงสร้างกราฟ Bipartite โดยมีนักษัตรเป็น Hub กลางเชื่อมจุด/ดาวของทุกคน
+type GephiNakshatraGraph struct {
+	Nodes []GephiNakshatraNode
+	Edges []GephiNakshatraEdge
+}
