@@ -72,9 +72,9 @@ func TestHandleExportGephiTriadGEXF(t *testing.T) {
 
 	rawXML := rec.Body.String()
 	for _, want := range []string{
-		`xmlns="http://www.gexf.net/1.2draft"`,
-		`xmlns:viz="http://www.gexf.net/1.2draft/viz"`,
-		`defaultedgetype="directed"`,
+		`xmlns="http://gexf.net/1.3"`,
+		`xmlns:viz="http://gexf.net/1.3/viz"`,
+		`defaultedgetype="mixed"`,
 		`<viz:size value="`,
 		`<viz:color r="`,
 		`id="P1_Lagna"`,
@@ -82,6 +82,13 @@ func TestHandleExportGephiTriadGEXF(t *testing.T) {
 		`id="P3_Saturn"`,
 		`type="directed"`,
 		`type="undirected"`,
+		`for="birth_date"`,
+		`for="scoring_formula"`,
+		`for="nakshatra_gana"`,
+		`for="is_dasha_active"`,
+		`for="relation_thai"`,
+		`for="rasi"`,
+		`for="rasi_name"`,
 	} {
 		if !strings.Contains(rawXML, want) {
 			t.Errorf("expected GEXF output to contain %q", want)
@@ -148,6 +155,180 @@ func TestHandleExportGephiWrapperAndBuddhistEra(t *testing.T) {
 	if parsed.Graph.Nodes.Items[0].ID != "P1_Lagna" || parsed.Graph.Nodes.Items[10].ID != "P2_Lagna" {
 		t.Errorf("expected auto-assigned P1_Lagna and P2_Lagna, got %q and %q",
 			parsed.Graph.Nodes.Items[0].ID, parsed.Graph.Nodes.Items[10].ID)
+	}
+}
+
+func TestHandleExportGephiJSON(t *testing.T) {
+	payload := `{
+  "persons": [
+    {
+      "id": "P1",
+      "name": "Alice",
+      "year": 1988,
+      "month": 12,
+      "day": 23,
+      "hour_thai": 10.35,
+      "time_zone": 7.0,
+      "latitude": 13.7563,
+      "longitude": 100.5018,
+      "house_system": "W"
+    },
+    {
+      "id": "P2",
+      "name": "Bob",
+      "year": 1990,
+      "month": 5,
+      "day": 15,
+      "hour_thai": 14.5,
+      "time_zone": 7.0,
+      "latitude": 13.7563,
+      "longitude": 100.5018
+    },
+    {
+      "id": "P3",
+      "name": "Carol",
+      "year": 1992,
+      "month": 8,
+      "day": 9,
+      "hour_thai": 8.25,
+      "time_zone": 7.0,
+      "latitude": 18.7883,
+      "longitude": 98.9853
+    }
+  ]
+}`
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/hora/gephi?format=json", bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	HandleExportGephi(rec, req)
+
+	res := rec.Result()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", res.StatusCode, rec.Body.String())
+	}
+
+	if ct := res.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Errorf("expected Content-Type application/json, got %q", ct)
+	}
+
+	var resp GephiGraphWrapperResp
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode JSON response: %v", err)
+	}
+
+	if resp.Status != "success" {
+		t.Errorf("expected status 'success', got %q", resp.Status)
+	}
+	if len(resp.Graph.Nodes) != 30 {
+		t.Errorf("expected 30 nodes, got %d", len(resp.Graph.Nodes))
+	}
+	if len(resp.Graph.Edges) < 50 {
+		t.Errorf("expected >= 50 edges, got %d", len(resp.Graph.Edges))
+	}
+	if len(resp.PairwiseMetrics) != 3 {
+		t.Fatalf("expected 3 pairwise metrics, got %d", len(resp.PairwiseMetrics))
+	}
+
+	m := resp.PairwiseMetrics[0]
+	if m.PersonA != "P1" || m.PersonB != "P2" || m.AshtakootaScore <= 0 || m.AshtakootaVerdict == "" {
+		t.Errorf("unexpected pairwise metric: %+v", m)
+	}
+}
+
+func TestHandleExportGephiCSVAndCosmograph(t *testing.T) {
+	payload := `{
+  "persons": [
+    {
+      "id": "P1",
+      "year": 1988,
+      "month": 12,
+      "day": 23,
+      "hour_thai": 10.35,
+      "time_zone": 7.0,
+      "latitude": 13.7563,
+      "longitude": 100.5018
+    },
+    {
+      "id": "P2",
+      "year": 1990,
+      "month": 5,
+      "day": 15,
+      "hour_thai": 14.5,
+      "time_zone": 7.0,
+      "latitude": 13.7563,
+      "longitude": 100.5018
+    }
+  ]
+}`
+
+	// 1. Test ?format=zip
+	reqZip := httptest.NewRequest(http.MethodPost, "/api/v1/hora/gephi?format=zip", bytes.NewBufferString(payload))
+	recZip := httptest.NewRecorder()
+	HandleExportGephi(recZip, reqZip)
+
+	resZip := recZip.Result()
+	if resZip.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK for zip format, got %d", resZip.StatusCode)
+	}
+	if ct := resZip.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/zip") {
+		t.Errorf("expected application/zip, got %q", ct)
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(recZip.Body.Bytes()), int64(recZip.Body.Len()))
+	if err != nil {
+		t.Fatalf("failed to open exported zip: %v", err)
+	}
+	if len(zr.File) != 2 {
+		t.Fatalf("expected 2 files in zip (nodes.csv & links.csv), got %d", len(zr.File))
+	}
+
+	var foundNodes, foundLinks bool
+	for _, f := range zr.File {
+		if f.Name == "nodes.csv" {
+			foundNodes = true
+		}
+		if f.Name == "links.csv" {
+			foundLinks = true
+		}
+	}
+	if !foundNodes || !foundLinks {
+		t.Errorf("expected nodes.csv and links.csv in zip, foundNodes=%v, foundLinks=%v", foundNodes, foundLinks)
+	}
+
+	// 2. Test ?format=cosmograph
+	reqCosmo := httptest.NewRequest(http.MethodPost, "/api/v1/hora/gephi?format=cosmograph", bytes.NewBufferString(payload))
+	recCosmo := httptest.NewRecorder()
+	HandleExportGephi(recCosmo, reqCosmo)
+	if recCosmo.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected 200 OK for cosmograph format, got %d", recCosmo.Result().StatusCode)
+	}
+
+	// 3. Test ?format=nodes_csv
+	reqNodes := httptest.NewRequest(http.MethodPost, "/api/v1/hora/gephi?format=nodes_csv", bytes.NewBufferString(payload))
+	recNodes := httptest.NewRecorder()
+	HandleExportGephi(recNodes, reqNodes)
+	if recNodes.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected 200 OK for nodes_csv format, got %d", recNodes.Result().StatusCode)
+	}
+	rdrNodes := csv.NewReader(recNodes.Body)
+	nodeRecords, err := rdrNodes.ReadAll()
+	if err != nil || len(nodeRecords) != 21 { // 1 header + 20 nodes (10 * 2 persons)
+		t.Errorf("unexpected nodes_csv output (records=%d, err=%v)", len(nodeRecords), err)
+	}
+
+	// 4. Test ?format=links_csv
+	reqLinks := httptest.NewRequest(http.MethodPost, "/api/v1/hora/gephi?format=links_csv", bytes.NewBufferString(payload))
+	recLinks := httptest.NewRecorder()
+	HandleExportGephi(recLinks, reqLinks)
+	if recLinks.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected 200 OK for links_csv format, got %d", recLinks.Result().StatusCode)
+	}
+	rdrLinks := csv.NewReader(recLinks.Body)
+	linkRecords, err := rdrLinks.ReadAll()
+	if err != nil || len(linkRecords) < 10 {
+		t.Errorf("unexpected links_csv output (records=%d, err=%v)", len(linkRecords), err)
 	}
 }
 

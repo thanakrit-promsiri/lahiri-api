@@ -96,6 +96,55 @@ func TestGephiReqValidation(t *testing.T) {
 	}
 }
 
+func TestGephi4PersonsJupiterConjunction(t *testing.T) {
+	req := GephiReq{
+		Persons: []GephiPersonReq{
+			{
+				ID: "P1", Name: "Male 1988",
+				CalculateReq: CalculateReq{Year: 1988, Month: 12, Day: 23, HourThai: 10.35, TimeZone: 7, Latitude: 17.598, Longitude: 101.721, HouseSystem: "W"},
+			},
+			{
+				ID: "P2", Name: "Female 1991",
+				CalculateReq: CalculateReq{Year: 1991, Month: 4, Day: 19, HourThai: 2.15, TimeZone: 7, Latitude: 16.468, Longitude: 102.83, HouseSystem: "W"},
+			},
+			{
+				ID: "P3", Name: "Female 2003",
+				CalculateReq: CalculateReq{Year: 2003, Month: 4, Day: 25, HourThai: 9.7, TimeZone: 7, Latitude: 16.463, Longitude: 99.528, HouseSystem: "W"},
+			},
+			{
+				ID: "P4", Name: "Female 1990",
+				CalculateReq: CalculateReq{Year: 1990, Month: 9, Day: 26, HourThai: 4.816667, TimeZone: 7, Latitude: 13.909, Longitude: 100.618, HouseSystem: "W"},
+			},
+		},
+	}
+
+	graph := ComputeGephiGraph(req)
+	var foundP2P3, foundP2P4, foundP3P4 bool
+	for _, e := range graph.Edges {
+		if e.Relation != EdgeRelYuti {
+			continue
+		}
+		pair := e.Source + "-" + e.Target
+		if pair == "P2_Jupiter-P3_Jupiter" || pair == "P3_Jupiter-P2_Jupiter" {
+			foundP2P3 = true
+			if e.Rasi != 4 || e.RasiName != "Cancer" || e.RelationThai != "กุม (Yuti)" {
+				t.Errorf("unexpected P2-P3 Jupiter edge attributes: %+v", e)
+			}
+		}
+		if pair == "P2_Jupiter-P4_Jupiter" || pair == "P4_Jupiter-P2_Jupiter" {
+			foundP2P4 = true
+		}
+		if pair == "P3_Jupiter-P4_Jupiter" || pair == "P4_Jupiter-P3_Jupiter" {
+			foundP3P4 = true
+		}
+	}
+
+	if !foundP2P3 || !foundP2P4 || !foundP3P4 {
+		t.Fatalf("expected all 3 Jupiter-Jupiter conjunction edges in Cancer, got P2-P3=%v, P2-P4=%v, P3-P4=%v",
+			foundP2P3, foundP2P4, foundP3P4)
+	}
+}
+
 func TestComputeGephiGraphTriad(t *testing.T) {
 	req := GephiReq{Persons: sampleTriadPersons()}
 	graph := ComputeGephiGraph(req)
@@ -166,14 +215,68 @@ func TestComputeGephiGraphTriad(t *testing.T) {
 		t.Errorf("expected mixed directed/undirected and inter/intra edges, got directed=%v undirected=%v inter=%v intra=%v",
 			hasDirected, hasUndirected, hasInter, hasIntra)
 	}
+
+	// P0: ตรวจสอบ Birth Metadata ในโหนด
+	if graph.Nodes[0].BirthDate == "" || graph.Nodes[0].BirthTime == "" || graph.Nodes[0].JulianDay <= 0 {
+		t.Errorf("expected birth metadata populated in node, got %+v", graph.Nodes[0])
+	}
+
+	// P1: ตรวจสอบ Nakshatra Compatibility Attributes (Gana, Yoni, Nadi)
+	if graph.Nodes[0].NakshatraGana == "" || graph.Nodes[0].NakshatraYoni == "" || graph.Nodes[0].NakshatraNadi == "" {
+		t.Errorf("expected nakshatra attributes in node, got gana=%q yoni=%q nadi=%q",
+			graph.Nodes[0].NakshatraGana, graph.Nodes[0].NakshatraYoni, graph.Nodes[0].NakshatraNadi)
+	}
+
+	// P2: ตรวจสอบ Vimshottari Dasha Active Timing
+	var hasActiveDasha bool
+	for _, n := range graph.Nodes {
+		if n.IsDashaActive {
+			hasActiveDasha = true
+			if n.DashaRole == "" || n.DashaPeriod == "" {
+				t.Errorf("node %s has active dasha but empty role/period", n.ID)
+			}
+		}
+	}
+	if !hasActiveDasha {
+		t.Error("expected at least one active dasha planet per person")
+	}
+
+	// P2: ตรวจสอบ PairwiseSynastryMetrics
+	if len(graph.PairwiseMetrics) != 3 {
+		t.Fatalf("expected 3 pairwise synastry metrics for 3 persons, got %d", len(graph.PairwiseMetrics))
+	}
+	m := graph.PairwiseMetrics[0]
+	if m.PersonA != "P1" || m.PersonB != "P2" || m.AshtakootaScore <= 0 || m.AshtakootaVerdict == "" {
+		t.Errorf("unexpected pairwise metric values: %+v", m)
+	}
+
+	// ตรวจสอบว่าเส้นทั้งหมดเป็น D1 (ราศีจักร) เท่านั้น และไม่มี D9 Yuti
+	var hasNakshatraCompat bool
+	for _, e := range graph.Edges {
+		if e.Layer != "D1" {
+			t.Errorf("expected D1 edge only, got edge %s layer=%s", e.ID, e.Layer)
+		}
+		if e.Relation == EdgeRelD9Yuti {
+			t.Errorf("expected no D9 Yuti edges in D1 graph, got %s", e.ID)
+		}
+		if e.Relation == EdgeRelNakshatra {
+			hasNakshatraCompat = true
+			if e.TaraName == "" || e.TaraScore == 0 {
+				t.Errorf("expected tara attributes on nakshatra edge, got %+v", e)
+			}
+		}
+	}
+	if !hasNakshatraCompat {
+		t.Error("expected cross-chart Nakshatra Compatibility edges between Moons")
+	}
 }
 
 func TestGephiYutiEdgesAndOrbWeights(t *testing.T) {
 	nodes := []GephiNode{
-		{ID: "P1_Moon", PersonID: "P1", Body: "Moon", Rasi: 2, Degree: 5.0},
-		{ID: "P2_Venus", PersonID: "P2", Body: "Venus", Rasi: 2, Degree: 6.5},   // orb 1.5 -> W = 10
-		{ID: "P3_Mercury", PersonID: "P3", Body: "Mercury", Rasi: 2, Degree: 21.5}, // orb vs P1 = 16.5 -> W = 6.5
-		{ID: "P1_Sun", PersonID: "P1", Body: "Sun", Rasi: 3, Degree: 10.0},
+		{ID: "P1_Moon", PersonID: "P1", Body: "Moon", Rasi: 2, RasiName: "Taurus", RasiThai: "พฤษภ", Degree: 5.0},
+		{ID: "P2_Venus", PersonID: "P2", Body: "Venus", Rasi: 2, RasiName: "Taurus", RasiThai: "พฤษภ", Degree: 6.5},      // orb 1.5 -> W = 10
+		{ID: "P3_Mercury", PersonID: "P3", Body: "Mercury", Rasi: 2, RasiName: "Taurus", RasiThai: "พฤษภ", Degree: 21.5}, // orb vs P1 = 16.5 -> W = 6.5
+		{ID: "P1_Sun", PersonID: "P1", Body: "Sun", Rasi: 3, RasiName: "Gemini", RasiThai: "เมถุน", Degree: 10.0},
 	}
 
 	edges := appendYutiEdges(nil, nodes)
@@ -183,6 +286,18 @@ func TestGephiYutiEdgesAndOrbWeights(t *testing.T) {
 
 	if edges[0].Source != "P1_Moon" || edges[0].Target != "P2_Venus" || edges[0].Weight != 10.0 || edges[0].Type != EdgeDirUndirected {
 		t.Errorf("unexpected tight Yuti edge: %+v", edges[0])
+	}
+	if edges[0].Rasi != 2 || edges[0].RasiName != "Taurus" || edges[0].RasiThai != "พฤษภ" {
+		t.Errorf("expected Rasi 2 / Taurus / พฤษภ on Yuti edge, got: %+v", edges[0])
+	}
+	if edges[0].RelationThai != "กุม (Yuti)" {
+		t.Errorf("expected RelationThai 'กุม (Yuti)', got: %s", edges[0].RelationThai)
+	}
+	if !strings.Contains(edges[0].Label, "Taurus") {
+		t.Errorf("expected label to contain sign Taurus, got %s", edges[0].Label)
+	}
+	if edges[0].ScoringFormula == "" || edges[0].BaseWeight <= 0 {
+		t.Errorf("expected scoring formula and base weight on Yuti edge: %+v", edges[0])
 	}
 	if edges[1].Source != "P1_Moon" || edges[1].Target != "P3_Mercury" || math.Abs(edges[1].Weight-6.5) > 0.01 {
 		t.Errorf("unexpected mid-orb Yuti edge (expected W=6.5): %+v", edges[1])
@@ -431,5 +546,105 @@ func TestGephiHelpers(t *testing.T) {
 	meta := resolvePersonMeta(GephiPersonReq{}, 0)
 	if meta.ID != "P1" || meta.Name != "P1" {
 		t.Errorf("expected default P1/P1, got %q/%q", meta.ID, meta.Name)
+	}
+}
+
+func TestAshtakootaCompatibilityAndTables(t *testing.T) {
+	// Ashwini (1) to Rohini (4):
+	// Count from 1 to 4 = 4. 4 % 9 = 4 -> Kshema (Well-being)
+	tara := ComputeTaraBala(1, 4)
+	if !strings.Contains(tara.Name, "Kshema") || tara.Score != 1 || !tara.IsAuspicious {
+		t.Errorf("expected Kshema score 1 auspicious, got %+v", tara)
+	}
+
+	// Gana compatibility: Deva and Manushya -> Harmonious (score 5)
+	ganaLabel, ganaScore := ComputeGanaCompat(GanaDeva, GanaManushya)
+	if !strings.Contains(ganaLabel, "Harmonious") || ganaScore != 5.0 {
+		t.Errorf("expected Deva-Manushya to be Harmonious score 5, got label=%s score=%f", ganaLabel, ganaScore)
+	}
+
+	// Yoni compatibility: Horse and Elephant
+	yoniLabel, yoniScore := ComputeYoniCompat(YoniHorse, YoniElephant)
+	if yoniLabel == "" || yoniScore < 0 {
+		t.Errorf("expected valid yoni score, got label=%s score=%f", yoniLabel, yoniScore)
+	}
+
+	// Nadi compatibility: Different nadis (Adi vs Madhya) -> Harmonious score 8
+	nadiLabel, nadiScore := ComputeNadiCompat(NadiAdi, NadiMadhya)
+	if !strings.Contains(nadiLabel, "Different") || nadiScore != 8.0 {
+		t.Errorf("expected Nadi Harmonious score 8, got label=%s score=%f", nadiLabel, nadiScore)
+	}
+
+	// Full Ashtakoota
+	moonA := GephiNode{Rasi: 1, Nakshatra: 1, NakshatraGana: GanaDeva, NakshatraYoni: YoniHorse, NakshatraNadi: NadiAdi}
+	moonB := GephiNode{Rasi: 2, Nakshatra: 4, NakshatraGana: GanaManushya, NakshatraYoni: YoniSerpent, NakshatraNadi: NadiAntya}
+	koota := ComputeAshtakoota(moonA, moonB)
+	if koota.TotalScore <= 0 || koota.Verdict == "" {
+		t.Errorf("expected positive total score and verdict, got %+v", koota)
+	}
+
+	// Boundary / fallback tests
+	if g := GetNakshatraGana(99); g != GanaDeva {
+		t.Errorf("expected default Deva for invalid nakshatra, got %s", g)
+	}
+	if y := GetNakshatraYoni(99); y != YoniHorse {
+		t.Errorf("expected default YoniHorse for invalid yoni, got %s", y)
+	}
+	if n := GetNakshatraNadi(99); n != NadiAdi {
+		t.Errorf("expected default NadiAdi for invalid nadi, got %s", n)
+	}
+}
+
+func TestGephiD9SynastryAndScoring(t *testing.T) {
+	nodes := []GephiNode{
+		{
+			ID: "P1_Moon", PersonID: "P1", Body: "Moon", Rasi: 2, D9Rasi: 5,
+		},
+		{
+			ID: "P2_Venus", PersonID: "P2", Body: "Venus", Rasi: 8, D9Rasi: 5, // D9 Yuti in Leo!
+		},
+		{
+			ID: "P1_Jupiter", PersonID: "P1", Body: "Jupiter", Rasi: 3, D9Rasi: 5, // Intra with P1_Moon, cross-chart with P2_Venus
+		},
+		{
+			ID: "P2_Mars", PersonID: "P2", Body: "Mars", Rasi: 1, D9Rasi: 9, // Different D9 sign
+		},
+	}
+
+	edges := appendD9SynastryEdges(nil, nodes)
+	if len(edges) != 2 {
+		t.Fatalf("expected 2 cross-chart D9 Yuti edges, got %d", len(edges))
+	}
+	if edges[0].Source != "P1_Moon" || edges[0].Target != "P2_Venus" || edges[0].Type != EdgeDirUndirected {
+		t.Errorf("unexpected D9 edge: %+v", edges[0])
+	}
+	if edges[0].Layer != "D9" || edges[0].Relation != EdgeRelD9Yuti || edges[0].ScoringFormula == "" {
+		t.Errorf("unexpected D9 edge attributes: %+v", edges[0])
+	}
+}
+
+func TestGephiPairwiseMetricsComputation(t *testing.T) {
+	req := GephiReq{
+		Persons: []GephiPersonReq{
+			{
+				ID: "P1", Name: "Alpha",
+				CalculateReq: CalculateReq{Year: 1988, Month: 12, Day: 23, HourThai: 10.35, TimeZone: 7.0, Latitude: 13.75, Longitude: 100.5},
+			},
+			{
+				ID: "P2", Name: "Beta",
+				CalculateReq: CalculateReq{Year: 1991, Month: 4, Day: 19, HourThai: 2.15, TimeZone: 7.0, Latitude: 16.46, Longitude: 102.82},
+			},
+		},
+	}
+	graph := ComputeGephiGraph(req)
+	if len(graph.PairwiseMetrics) != 1 {
+		t.Fatalf("expected 1 pairwise metric for 2 persons, got %d", len(graph.PairwiseMetrics))
+	}
+	pm := graph.PairwiseMetrics[0]
+	if pm.PersonA != "P1" || pm.PersonB != "P2" {
+		t.Errorf("unexpected pairwise persons: %s - %s", pm.PersonA, pm.PersonB)
+	}
+	if pm.TotalEdges == 0 || pm.AshtakootaScore <= 0 {
+		t.Errorf("expected positive total edges and Ashtakoota score, got %+v", pm)
 	}
 }

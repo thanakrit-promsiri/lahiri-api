@@ -2,15 +2,17 @@ package api
 
 import (
 	"encoding/xml"
+	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
 const (
-	gexfNS          = "http://www.gexf.net/1.2draft"
-	gexfVizNS       = "http://www.gexf.net/1.2draft/viz"
+	gexfNS          = "http://gexf.net/1.3"
+	gexfVizNS       = "http://gexf.net/1.3/viz"
 	xmlSchemaInstNS = "http://www.w3.org/2001/XMLSchema-instance"
-	gexfSchemaLoc   = "http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd"
+	gexfSchemaLoc   = "http://gexf.net/1.3 http://gexf.net/1.3/gexf.xsd"
 )
 
 type gexfDoc struct {
@@ -120,6 +122,25 @@ var nodeAttrDefs = []gexfAttribute{
 	{ID: "d9_rasi", Title: "D9Rasi", Type: "integer"},
 	{ID: "d9_rasi_name", Title: "D9RasiName", Type: "string"},
 	{ID: "d9_dignity", Title: "D9Dignity", Type: "string"},
+
+	// P0: Birth Metadata
+	{ID: "birth_date", Title: "BirthDate", Type: "string"},
+	{ID: "birth_time", Title: "BirthTime", Type: "string"},
+	{ID: "time_zone", Title: "TimeZone", Type: "double"},
+	{ID: "latitude", Title: "Latitude", Type: "double"},
+	{ID: "birth_longitude", Title: "BirthLongitude", Type: "double"},
+	{ID: "julian_day", Title: "JulianDay", Type: "double"},
+	{ID: "ayanamsa", Title: "Ayanamsa", Type: "string"},
+
+	// P1: Nakshatra Compatibility (Gana, Yoni, Nadi)
+	{ID: "nakshatra_gana", Title: "NakshatraGana", Type: "string"},
+	{ID: "nakshatra_yoni", Title: "NakshatraYoni", Type: "string"},
+	{ID: "nakshatra_nadi", Title: "NakshatraNadi", Type: "string"},
+
+	// P2: Vimshottari Dasha Active Timing
+	{ID: "is_dasha_active", Title: "IsDashaActive", Type: "boolean"},
+	{ID: "dasha_role", Title: "DashaRole", Type: "string"},
+	{ID: "dasha_period", Title: "DashaPeriod", Type: "string"},
 }
 
 var houseNodeAttrDefs = []gexfAttribute{
@@ -153,9 +174,31 @@ var houseEdgeAttrDefs = []gexfAttribute{
 	{ID: "color_label", Title: "ColorLabel", Type: "string"},
 }
 
-var edgeAttrDefs = append(append([]gexfAttribute(nil), houseEdgeAttrDefs...),
-	gexfAttribute{ID: "drishti_house", Title: "DrishtiAspect", Type: "integer"},
-)
+var edgeAttrDefs = []gexfAttribute{
+	{ID: "relation", Title: "Relation", Type: "string"},
+	{ID: "relation_thai", Title: "RelationThai", Type: "string"},
+	{ID: "edge_type", Title: "EdgeType", Type: "string"},
+	{ID: "scope", Title: "Scope", Type: "string"},
+	{ID: "polarity", Title: "Polarity", Type: "integer"},
+	{ID: "orb", Title: "Orb", Type: "double"},
+	{ID: "color_label", Title: "ColorLabel", Type: "string"},
+	{ID: "rasi", Title: "Rasi", Type: "integer"},
+	{ID: "rasi_name", Title: "RasiName", Type: "string"},
+	{ID: "rasi_thai", Title: "RasiThai", Type: "string"},
+	{ID: "drishti_house", Title: "DrishtiAspect", Type: "integer"},
+	{ID: "score", Title: "Score", Type: "integer"},
+	{ID: "base_weight", Title: "BaseWeight", Type: "double"},
+	{ID: "scoring_formula", Title: "ScoringFormula", Type: "string"},
+	{ID: "layer", Title: "Layer", Type: "string"},
+	{ID: "drishti_rule", Title: "DrishtiRule", Type: "string"},
+	{ID: "is_mutual", Title: "IsMutual", Type: "boolean"},
+	{ID: "aspect_angle", Title: "AspectAngle", Type: "integer"},
+	{ID: "tara_name", Title: "TaraName", Type: "string"},
+	{ID: "tara_score", Title: "TaraScore", Type: "integer"},
+	{ID: "gana_compat", Title: "GanaCompat", Type: "string"},
+	{ID: "yoni_compat", Title: "YoniCompat", Type: "string"},
+	{ID: "nadi_compat", Title: "NadiCompat", Type: "string"},
+}
 
 var karmaNodeAttrDefs = []gexfAttribute{
 	{ID: "person", Title: "Person", Type: "string"},
@@ -185,7 +228,8 @@ var karmaNodeAttrDefs = []gexfAttribute{
 	{ID: "d9_dignity", Title: "D9Dignity", Type: "string"},
 }
 
-var karmaEdgeAttrDefs = append(append([]gexfAttribute(nil), edgeAttrDefs...),
+var karmaEdgeAttrDefs = append(append([]gexfAttribute(nil), houseEdgeAttrDefs...),
+	gexfAttribute{ID: "drishti_house", Title: "DrishtiAspect", Type: "integer"},
 	gexfAttribute{ID: "layer", Title: "Layer", Type: "string"},
 	gexfAttribute{ID: "force_role", Title: "Force_Role", Type: "string"},
 )
@@ -250,8 +294,21 @@ func formatGEXFWithDate(graph GephiGraph, modifiedDate string) ([]byte, error) {
 		nodes = append(nodes, toGEXFNode(n))
 	}
 
+	description := "Vedic Astrology Network Analysis (Sidereal Lahiri / Whole Sign)"
+	if len(graph.PairwiseMetrics) > 0 {
+		var b strings.Builder
+		b.WriteString(description)
+		b.WriteString(" | Pairwise Synastry:")
+		for _, m := range graph.PairwiseMetrics {
+			b.WriteString(fmt.Sprintf(" [%s-%s: Harmony=%.1f%%, Ashtakoota=%.1f/36 (%s)]",
+				m.PersonA, m.PersonB, m.HarmonyRatio*100, m.AshtakootaScore, m.AshtakootaVerdict))
+		}
+		description = b.String()
+	}
+
 	return marshalGEXFDoc(
-		"Vedic Astrology Network Analysis (Sidereal Lahiri / Whole Sign)",
+		description,
+		"mixed",
 		nodeAttrDefs,
 		edgeAttrDefs,
 		nodes,
@@ -268,6 +325,7 @@ func formatHouseGEXFWithDate(graph GephiHouseGraph, modifiedDate string) ([]byte
 
 	return marshalGEXFDoc(
 		"Vedic Astrology House-Planet Bipartite Network (Sidereal Lahiri / Whole Sign)",
+		"directed",
 		houseNodeAttrDefs,
 		houseEdgeAttrDefs,
 		nodes,
@@ -294,6 +352,7 @@ func formatKarmaGEXFWithDate(graph GephiKarmaGraph, modifiedDate string) ([]byte
 
 	return marshalGEXFDoc(
 		"Vedic Astrology Topology of Karma (Sidereal Lahiri / True Nodes / D1+D9)",
+		"mixed",
 		karmaNodeAttrDefs,
 		karmaEdgeAttrDefs,
 		nodes,
@@ -358,6 +417,7 @@ func formatNakshatraGEXFWithDate(graph GephiNakshatraGraph, modifiedDate string)
 
 	return marshalGEXFDoc(
 		"Vedic Astrology Nakshatra Hub Network (Sidereal Lahiri / Occupied Nakshatra)",
+		"directed",
 		nakshatraNodeAttrDefs,
 		nakshatraEdgeAttrDefs,
 		nodes,
@@ -407,18 +467,22 @@ func toGEXFNakshatraNode(n GephiNakshatraNode) gexfNode {
 
 func marshalGEXFDoc(
 	description string,
+	defaultEdgeType string,
 	nodeAttrs []gexfAttribute,
 	edgeAttrs []gexfAttribute,
 	nodes []gexfNode,
 	edges []gexfEdge,
 	modifiedDate string,
 ) ([]byte, error) {
+	if defaultEdgeType == "" {
+		defaultEdgeType = "mixed"
+	}
 	doc := gexfDoc{
 		Xmlns:          gexfNS,
 		XmlnsViz:       gexfVizNS,
 		XmlnsXsi:       xmlSchemaInstNS,
 		SchemaLocation: gexfSchemaLoc,
-		Version:        "1.2",
+		Version:        "1.3",
 		Meta: gexfMeta{
 			LastModifiedDate: modifiedDate,
 			Creator:          "lahiri-api",
@@ -426,7 +490,7 @@ func marshalGEXFDoc(
 		},
 		Graph: gexfGraph{
 			Mode:            "static",
-			DefaultEdgeType: "directed",
+			DefaultEdgeType: defaultEdgeType,
 			Attributes: []gexfAttributes{
 				{Class: "node", Mode: "static", Items: nodeAttrs},
 				{Class: "edge", Mode: "static", Items: edgeAttrs},
@@ -487,6 +551,25 @@ func toGEXFNode(n GephiNode) gexfNode {
 				{For: "d9_rasi", Value: strconv.Itoa(n.D9Rasi)},
 				{For: "d9_rasi_name", Value: n.D9RasiName},
 				{For: "d9_dignity", Value: n.D9Dignity},
+
+				// P0: Birth Metadata
+				{For: "birth_date", Value: n.BirthDate},
+				{For: "birth_time", Value: n.BirthTime},
+				{For: "time_zone", Value: strconv.FormatFloat(n.TimeZone, 'f', -1, 64)},
+				{For: "latitude", Value: strconv.FormatFloat(n.Latitude, 'f', -1, 64)},
+				{For: "birth_longitude", Value: strconv.FormatFloat(n.BirthLongitude, 'f', -1, 64)},
+				{For: "julian_day", Value: strconv.FormatFloat(n.JulianDay, 'f', -1, 64)},
+				{For: "ayanamsa", Value: n.Ayanamsa},
+
+				// P1: Nakshatra Compatibility
+				{For: "nakshatra_gana", Value: n.NakshatraGana},
+				{For: "nakshatra_yoni", Value: n.NakshatraYoni},
+				{For: "nakshatra_nadi", Value: n.NakshatraNadi},
+
+				// P2: Vimshottari Dasha Active Timing
+				{For: "is_dasha_active", Value: strconv.FormatBool(n.IsDashaActive)},
+				{For: "dasha_role", Value: n.DashaRole},
+				{For: "dasha_period", Value: n.DashaPeriod},
 			},
 		},
 	}
@@ -525,9 +608,14 @@ func toGEXFHouseNode(n GephiHouseNode) gexfNode {
 }
 
 func toGEXFEdge(e GephiEdge) gexfEdge {
-	attrs := make([]gexfAttValue, 0, 7)
+	attrs := make([]gexfAttValue, 0, 20)
 	attrs = append(attrs,
 		gexfAttValue{For: "relation", Value: e.Relation},
+	)
+	if e.RelationThai != "" {
+		attrs = append(attrs, gexfAttValue{For: "relation_thai", Value: e.RelationThai})
+	}
+	attrs = append(attrs,
 		gexfAttValue{For: "edge_type", Value: e.EdgeType},
 		gexfAttValue{For: "scope", Value: e.Scope},
 		gexfAttValue{For: "polarity", Value: strconv.Itoa(e.Polarity)},
@@ -539,6 +627,57 @@ func toGEXFEdge(e GephiEdge) gexfEdge {
 		attrs = append(attrs, gexfAttValue{For: "drishti_house", Value: strconv.Itoa(e.DrishtiHouse)})
 	}
 	attrs = append(attrs, gexfAttValue{For: "color_label", Value: e.ColorLabel})
+	if e.Rasi > 0 {
+		attrs = append(attrs,
+			gexfAttValue{For: "rasi", Value: strconv.Itoa(e.Rasi)},
+			gexfAttValue{For: "rasi_name", Value: e.RasiName},
+			gexfAttValue{For: "rasi_thai", Value: e.RasiThai},
+		)
+	}
+
+	// P0: Scoring Formula
+	if e.Score != 0 {
+		attrs = append(attrs, gexfAttValue{For: "score", Value: strconv.Itoa(e.Score)})
+	}
+	if e.BaseWeight > 0 {
+		attrs = append(attrs, gexfAttValue{For: "base_weight", Value: strconv.FormatFloat(e.BaseWeight, 'f', -1, 64)})
+	}
+	if e.ScoringFormula != "" {
+		attrs = append(attrs, gexfAttValue{For: "scoring_formula", Value: e.ScoringFormula})
+	}
+
+	// P1: Layer
+	if e.Layer != "" {
+		attrs = append(attrs, gexfAttValue{For: "layer", Value: e.Layer})
+	}
+
+	// P1: Graha Drishti Detail
+	if e.DrishtiRule != "" {
+		attrs = append(attrs, gexfAttValue{For: "drishti_rule", Value: e.DrishtiRule})
+	}
+	if e.IsMutual {
+		attrs = append(attrs, gexfAttValue{For: "is_mutual", Value: strconv.FormatBool(e.IsMutual)})
+	}
+	if e.AspectAngle > 0 || e.Relation == "Yuti" || e.Relation == "D9 Yuti" {
+		attrs = append(attrs, gexfAttValue{For: "aspect_angle", Value: strconv.Itoa(e.AspectAngle)})
+	}
+
+	// P1: Nakshatra Compatibility Details
+	if e.TaraName != "" {
+		attrs = append(attrs, gexfAttValue{For: "tara_name", Value: e.TaraName})
+	}
+	if e.TaraScore != 0 {
+		attrs = append(attrs, gexfAttValue{For: "tara_score", Value: strconv.Itoa(e.TaraScore)})
+	}
+	if e.GanaCompat != "" {
+		attrs = append(attrs, gexfAttValue{For: "gana_compat", Value: e.GanaCompat})
+	}
+	if e.YoniCompat != "" {
+		attrs = append(attrs, gexfAttValue{For: "yoni_compat", Value: e.YoniCompat})
+	}
+	if e.NadiCompat != "" {
+		attrs = append(attrs, gexfAttValue{For: "nadi_compat", Value: e.NadiCompat})
+	}
 
 	return gexfEdge{
 		ID:        e.ID,

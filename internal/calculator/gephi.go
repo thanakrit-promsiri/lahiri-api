@@ -3,16 +3,20 @@ package calculator
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 )
 
 const (
 	EdgeDirDirected   = "directed"
+	EdgeDirMutual     = "undirected" // Gephi recognizes only "directed" and "undirected"
 	EdgeDirUndirected = "undirected"
 
 	EdgeRelYuti        = "Yuti"
 	EdgeRelDrishti     = "Graha Drishti"
 	EdgeRelParivartana = "Parivartana"
+	EdgeRelD9Yuti      = "D9 Yuti"
+	EdgeRelNakshatra   = "Nakshatra Compatibility"
 
 	EdgeTypeHarmonious  = "Harmonious"
 	EdgeTypeNeutral     = "Neutral"
@@ -100,7 +104,7 @@ var extraNodeEnemies = map[string]map[string]bool{
 	"Venus":   {"Ketu": true},
 }
 
-// ComputeGephiGraph สร้างโครงข่ายโหนด (คนละ 10 โหนด) และเส้นเชื่อมความสัมพันธ์ (Yuti, Graha Drishti, Parivartana)
+// ComputeGephiGraph สร้างโครงข่ายโหนด (คนละ 10 โหนด) และเส้นเชื่อมความสัมพันธ์ (Yuti, Graha Drishti, Parivartana, D9 Synastry, Nakshatra)
 func ComputeGephiGraph(req GephiReq) GephiGraph {
 	nodes := make([]GephiNode, 0, len(req.Persons)*10)
 	for i, person := range req.Persons {
@@ -110,9 +114,12 @@ func ComputeGephiGraph(req GephiReq) GephiGraph {
 	}
 
 	edges := buildGephiEdges(nodes)
+	pairwiseMetrics := ComputePairwiseMetrics(nodes, edges)
+
 	return GephiGraph{
-		Nodes: nodes,
-		Edges: edges,
+		Nodes:           nodes,
+		Edges:           edges,
+		PairwiseMetrics: pairwiseMetrics,
 	}
 }
 
@@ -142,11 +149,13 @@ func buildPersonGephiNodesWithNode(person GephiPersonReq, color GephiColor, useT
 		horoscope = ComputeHoroscope(person.CalculateReq)
 	}
 	nodes := make([]GephiNode, 0, 10)
+	meta := horoscope.Metadata
+	dasha := horoscope.VimshottariDasha.CurrentDasha
 
 	// 1. โหนดลัคนา (Lagna)
 	if len(horoscope.HousesAndAngles) > 0 {
 		asc := horoscope.HousesAndAngles[0]
-		nodes = append(nodes, buildLagnaNode(person, asc, color))
+		nodes = append(nodes, buildLagnaNode(person, asc, meta, color))
 	}
 
 	// 2. โหนดดาวนวเคราะห์ 9 ดวงตามลำดับมาตรฐาน NavagrahaOrder
@@ -161,13 +170,13 @@ func buildPersonGephiNodesWithNode(person GephiPersonReq, color GephiColor, useT
 		if !ok {
 			continue
 		}
-		nodes = append(nodes, buildPlanetNode(person, body, p, color))
+		nodes = append(nodes, buildPlanetNode(person, body, p, meta, dasha, color))
 	}
 
 	return nodes
 }
 
-func buildLagnaNode(person GephiPersonReq, asc ApiHouse, color GephiColor) GephiNode {
+func buildLagnaNode(person GephiPersonReq, asc ApiHouse, meta ApiMetadata, color GephiColor) GephiNode {
 	signIdx, degInSign := ParseLongitude(asc.Degree)
 	nak, pada, _ := GetNakshatra(asc.Degree)
 	d9SignIdx := GetSignIndexByName(asc.Navamsa.Sign)
@@ -175,35 +184,45 @@ func buildLagnaNode(person GephiPersonReq, asc ApiHouse, color GephiColor) Gephi
 	nodeID := person.ID + "_Lagna"
 
 	return GephiNode{
-		ID:            nodeID,
-		Label:         nodeID,
-		PersonID:      person.ID,
-		PersonName:    person.Name,
-		Body:          "Lagna",
-		BodyThai:      asc.NameThai,
-		Rasi:          signIdx + 1,
-		RasiName:      asc.Position.Sign,
-		RasiThai:      asc.Position.SignThai,
-		Degree:        roundTo4(degInSign),
-		Longitude:     roundTo4(asc.Degree),
-		Nakshatra:     nak.Index,
-		NakshatraName: asc.Nakshatra,
-		NakshatraPada: pada,
-		NakshatraLord: asc.Lord,
-		Dignity:       "Lagna",
-		DignityThai:   "ลัคนา",
-		Bala:          bala,
-		NodeSize:      size,
-		House:         asc.House,
-		IsVargottama:  asc.Position.Sign != "" && asc.Position.Sign == asc.Navamsa.Sign,
-		D9Rasi:        d9SignIdx + 1,
-		D9RasiName:    asc.Navamsa.Sign,
-		D9Dignity:     "Lagna",
-		Color:         color,
+		ID:             nodeID,
+		Label:          nodeID,
+		PersonID:       person.ID,
+		PersonName:     person.Name,
+		Body:           "Lagna",
+		BodyThai:       asc.NameThai,
+		Rasi:           signIdx + 1,
+		RasiName:       asc.Position.Sign,
+		RasiThai:       asc.Position.SignThai,
+		Degree:         roundTo4(degInSign),
+		Longitude:      roundTo4(asc.Degree),
+		Nakshatra:      nak.Index,
+		NakshatraName:  asc.Nakshatra,
+		NakshatraPada:  pada,
+		NakshatraLord:  asc.Lord,
+		Dignity:        "Lagna",
+		DignityThai:    "ลัคนา",
+		Bala:           bala,
+		NodeSize:       size,
+		House:          asc.House,
+		IsVargottama:   asc.Position.Sign != "" && asc.Position.Sign == asc.Navamsa.Sign,
+		D9Rasi:         d9SignIdx + 1,
+		D9RasiName:     asc.Navamsa.Sign,
+		D9Dignity:      "Lagna",
+		Color:          color,
+		BirthDate:      meta.BirthDate,
+		BirthTime:      meta.BirthTime,
+		TimeZone:       meta.TimeZone,
+		Latitude:       meta.Location.Latitude,
+		BirthLongitude: meta.Location.Longitude,
+		JulianDay:      roundTo4(meta.JulianDay),
+		Ayanamsa:       meta.AyanamsaDegrees,
+		NakshatraGana:  GetNakshatraGana(nak.Index),
+		NakshatraYoni:  GetNakshatraYoni(nak.Index),
+		NakshatraNadi:  GetNakshatraNadi(nak.Index),
 	}
 }
 
-func buildPlanetNode(person GephiPersonReq, body string, p ApiPlanet, color GephiColor) GephiNode {
+func buildPlanetNode(person GephiPersonReq, body string, p ApiPlanet, meta ApiMetadata, dasha CurrentDasha, color GephiColor) GephiNode {
 	signIdx, degInSign := ParseLongitude(p.Longitude)
 	nak, pada, _ := GetNakshatra(p.Longitude)
 	d9SignIdx := GetSignIndexByName(p.Navamsa.Sign)
@@ -211,42 +230,73 @@ func buildPlanetNode(person GephiPersonReq, body string, p ApiPlanet, color Geph
 	bala, size := dignityToBalaAndSize(p.Dignity)
 	nodeID := person.ID + "_" + body
 
+	isDashaActive := false
+	dashaRole := ""
+	dashaPeriod := ""
+	if dasha.MahadashaLord == body {
+		isDashaActive = true
+		dashaRole = "Mahadasha"
+		dashaPeriod = fmt.Sprintf("MD: %s (%s..%s)", dasha.MahadashaLord, dasha.MahadashaStart, dasha.MahadashaEnd)
+	} else if dasha.AntardashaLord == body {
+		isDashaActive = true
+		dashaRole = "Antardasha"
+		dashaPeriod = fmt.Sprintf("AD: %s (%s..%s)", dasha.AntardashaLord, dasha.AntardashaStart, dasha.AntardashaEnd)
+	} else if dasha.PratyantardashaLord == body {
+		isDashaActive = true
+		dashaRole = "Pratyantardasha"
+		dashaPeriod = fmt.Sprintf("PD: %s (%s..%s)", dasha.PratyantardashaLord, dasha.PratyantardashaStart, dasha.PratyantardashaEnd)
+	}
+
 	return GephiNode{
-		ID:            nodeID,
-		Label:         nodeID,
-		PersonID:      person.ID,
-		PersonName:    person.Name,
-		Body:          body,
-		BodyThai:      p.NameThai,
-		Rasi:          signIdx + 1,
-		RasiName:      p.Position.Sign,
-		RasiThai:      p.Position.SignThai,
-		Degree:        roundTo4(degInSign),
-		Longitude:     roundTo4(p.Longitude),
-		Nakshatra:     nak.Index,
-		NakshatraName: p.Nakshatra,
-		NakshatraPada: pada,
-		NakshatraLord: p.Lord,
-		Dignity:       p.Dignity,
-		DignityThai:   p.DignityThai,
-		Bala:          bala,
-		NodeSize:      size,
-		House:         p.House,
-		IsRetrograde:  p.IsRetrograde,
-		IsCombust:     p.IsCombust,
-		IsVargottama:  p.Position.Sign != "" && p.Position.Sign == p.Navamsa.Sign,
-		D9Rasi:        d9SignIdx + 1,
-		D9RasiName:    p.Navamsa.Sign,
-		D9Dignity:     d9Dig,
-		Color:         color,
+		ID:             nodeID,
+		Label:          nodeID,
+		PersonID:       person.ID,
+		PersonName:     person.Name,
+		Body:           body,
+		BodyThai:       p.NameThai,
+		Rasi:           signIdx + 1,
+		RasiName:       p.Position.Sign,
+		RasiThai:       p.Position.SignThai,
+		Degree:         roundTo4(degInSign),
+		Longitude:      roundTo4(p.Longitude),
+		Nakshatra:      nak.Index,
+		NakshatraName:  p.Nakshatra,
+		NakshatraPada:  pada,
+		NakshatraLord:  p.Lord,
+		Dignity:        p.Dignity,
+		DignityThai:    p.DignityThai,
+		Bala:           bala,
+		NodeSize:       size,
+		House:          p.House,
+		IsRetrograde:   p.IsRetrograde,
+		IsCombust:      p.IsCombust,
+		IsVargottama:   p.Position.Sign != "" && p.Position.Sign == p.Navamsa.Sign,
+		D9Rasi:         d9SignIdx + 1,
+		D9RasiName:     p.Navamsa.Sign,
+		D9Dignity:      d9Dig,
+		Color:          color,
+		BirthDate:      meta.BirthDate,
+		BirthTime:      meta.BirthTime,
+		TimeZone:       meta.TimeZone,
+		Latitude:       meta.Location.Latitude,
+		BirthLongitude: meta.Location.Longitude,
+		JulianDay:      roundTo4(meta.JulianDay),
+		Ayanamsa:       meta.AyanamsaDegrees,
+		NakshatraGana:  GetNakshatraGana(nak.Index),
+		NakshatraYoni:  GetNakshatraYoni(nak.Index),
+		NakshatraNadi:  GetNakshatraNadi(nak.Index),
+		IsDashaActive:  isDashaActive,
+		DashaRole:      dashaRole,
+		DashaPeriod:    dashaPeriod,
 	}
 }
 
 func buildGephiEdges(nodes []GephiNode) []GephiEdge {
-	edges := make([]GephiEdge, 0, len(nodes)*4)
+	edges := make([]GephiEdge, 0, len(nodes)*6)
 	edges = appendYutiEdges(edges, nodes)
 	edges = appendDrishtiEdges(edges, nodes)
 	edges = appendParivartanaEdges(edges, nodes)
+	edges = appendNakshatraSynastryEdges(edges, nodes)
 	return edges
 }
 
@@ -259,8 +309,16 @@ func appendYutiEdges(edges []GephiEdge, nodes []GephiNode) []GephiEdge {
 			}
 			orb := math.Abs(u.Degree - v.Degree)
 			weight := calcOrbWeight(orb, 10.0, 3.0, 3.0)
-			label := fmt.Sprintf("Yuti (%.2f°)", roundTo2(orb))
-			edges = append(edges, newGephiEdge(len(edges)+1, u, v, EdgeDirUndirected, EdgeRelYuti, label, weight, true, orb, 0))
+			label := fmt.Sprintf("Yuti in %s / กุมใน%s (%.2f°)", u.RasiName, u.RasiThai, roundTo2(orb))
+			edge := newGephiEdge(len(edges)+1, u, v, EdgeDirMutual, EdgeRelYuti, label, weight, true, orb, 0)
+			edge.BaseWeight = 10.0
+			edge.Layer = "D1"
+			edge.AspectAngle = 0
+			edge.Rasi = u.Rasi
+			edge.RasiName = u.RasiName
+			edge.RasiThai = u.RasiThai
+			edge.ScoringFormula = "W = 10.0 - 7.0*(orb-3.0)/27.0 (orb<=3°: 10.0, orb>=30°: 3.0); Polarity = Attitude(A,B) + Attitude(B,A)"
+			edges = append(edges, edge)
 		}
 	}
 	return edges
@@ -282,8 +340,32 @@ func appendDrishtiEdges(edges []GephiEdge, nodes []GephiNode) []GephiEdge {
 			for _, v := range nodesByRasi[targetRasi] {
 				orb := math.Abs(u.Degree - v.Degree)
 				weight := calcOrbWeight(orb, 7.0, 4.0, 3.0)
+				rule, angle := getDrishtiRule(u.Body, aspectHouse)
+
+				isMutual := false
+				if vAspects, ok := drishtiAspects[v.Body]; ok {
+					revHouse := ((u.Rasi - v.Rasi + 12) % 12) + 1
+					for _, h := range vAspects {
+						if h == revHouse {
+							isMutual = true
+							break
+						}
+					}
+				}
+
 				label := fmt.Sprintf("Drishti %d (%.2f°)", aspectHouse, roundTo2(orb))
-				edges = append(edges, newGephiEdge(len(edges)+1, u, v, EdgeDirDirected, EdgeRelDrishti, label, weight, true, orb, aspectHouse))
+				if isMutual {
+					label = fmt.Sprintf("Mutual Drishti %d (%.2f°)", aspectHouse, roundTo2(orb))
+				}
+
+				edge := newGephiEdge(len(edges)+1, u, v, EdgeDirDirected, EdgeRelDrishti, label, weight, true, orb, aspectHouse)
+				edge.BaseWeight = 7.0
+				edge.Layer = "D1"
+				edge.DrishtiRule = rule
+				edge.AspectAngle = angle
+				edge.IsMutual = isMutual
+				edge.ScoringFormula = "W = 7.0 - 3.0*(orb-3.0)/27.0 (orb<=3°: 7.0, orb>=30°: 4.0); Polarity = Attitude(A,B) + Attitude(B,A)"
+				edges = append(edges, edge)
 			}
 		}
 	}
@@ -304,11 +386,242 @@ func appendParivartanaEdges(edges []GephiEdge, nodes []GephiNode) []GephiEdge {
 			}
 			lordV := GetSignLord(v.Rasi - 1)
 			if lordU == v.Body && lordV == u.Body {
-				edges = append(edges, newGephiEdge(len(edges)+1, u, v, EdgeDirUndirected, EdgeRelParivartana, "Parivartana", 8.0, false, 0, 0))
+				edge := newGephiEdge(len(edges)+1, u, v, EdgeDirMutual, EdgeRelParivartana, "Parivartana", 8.0, false, 0, 0)
+				edge.BaseWeight = 8.0
+				edge.Layer = "D1"
+				edge.ScoringFormula = "W = 8.0 (Mutual Sign Exchange); Polarity = Attitude(A,B) + Attitude(B,A)"
+				edges = append(edges, edge)
 			}
 		}
 	}
 	return edges
+}
+
+func appendD9SynastryEdges(edges []GephiEdge, nodes []GephiNode) []GephiEdge {
+	for i := 0; i < len(nodes); i++ {
+		u := nodes[i]
+		if u.D9Rasi <= 0 {
+			continue
+		}
+		for j := i + 1; j < len(nodes); j++ {
+			v := nodes[j]
+			if v.D9Rasi <= 0 || u.PersonID == v.PersonID {
+				continue
+			}
+			if u.D9Rasi == v.D9Rasi && u.Rasi != v.Rasi {
+				d9Orb := math.Abs(calcNavamsaDegreeInSign(u.Degree) - calcNavamsaDegreeInSign(v.Degree))
+				weight := calcOrbWeight(d9Orb, 8.0, 4.0, 3.0)
+				label := fmt.Sprintf("D9 Yuti in %s (%.2f°)", u.D9RasiName, roundTo2(d9Orb))
+				edge := newGephiEdge(len(edges)+1, u, v, EdgeDirMutual, EdgeRelD9Yuti, label, weight, true, d9Orb, 0)
+				edge.BaseWeight = 8.0
+				edge.Layer = "D9"
+				edge.AspectAngle = 0
+				edge.ScoringFormula = "D9 Navamsa Conjunction: W = 8.0 - 4.0*(d9_orb-3.0)/27.0; Polarity = Attitude(A,B) + Attitude(B,A)"
+				edges = append(edges, edge)
+			}
+		}
+	}
+	return edges
+}
+
+func appendNakshatraSynastryEdges(edges []GephiEdge, nodes []GephiNode) []GephiEdge {
+	var moons []GephiNode
+	for _, n := range nodes {
+		if n.Body == "Moon" {
+			moons = append(moons, n)
+		}
+	}
+
+	for i := 0; i < len(moons); i++ {
+		for j := i + 1; j < len(moons); j++ {
+			mA, mB := moons[i], moons[j]
+			if mA.PersonID == mB.PersonID {
+				continue
+			}
+			ashtakoota := ComputeAshtakoota(mA, mB)
+			weight := roundTo2(3.0 + (ashtakoota.TotalScore / 36.0) * 7.0)
+			if weight > 10.0 {
+				weight = 10.0
+			}
+
+			score := 0
+			edgeType := EdgeTypeNeutral
+			colorLabel := "Gray"
+			color := GephiColor{R: 156, G: 163, B: 175}
+			polarity := 0
+
+			if ashtakoota.TotalScore >= 18.0 {
+				score = 1
+				edgeType = EdgeTypeHarmonious
+				colorLabel = "Blue"
+				color = GephiColor{R: 37, G: 99, B: 235}
+				polarity = 1
+			} else {
+				score = -1
+				edgeType = EdgeTypeChallenging
+				colorLabel = "Red"
+				color = GephiColor{R: 220, G: 38, B: 38}
+				polarity = -1
+			}
+
+			taraAB := ComputeTaraBala(mA.Nakshatra, mB.Nakshatra)
+			label := fmt.Sprintf("Ashtakoota %.1f/36 (%s)", ashtakoota.TotalScore, ashtakoota.Verdict)
+
+			edges = append(edges, GephiEdge{
+				ID:             fmt.Sprintf("e%d", len(edges)+1),
+				Source:         mA.ID,
+				Target:         mB.ID,
+				Type:           EdgeDirMutual,
+				Weight:         weight,
+				Label:          label,
+				Relation:       EdgeRelNakshatra,
+				EdgeType:       edgeType,
+				Scope:          EdgeScopeInter,
+				Polarity:       polarity,
+				ColorLabel:     colorLabel,
+				Color:          color,
+				Score:          score,
+				BaseWeight:     10.0,
+				ScoringFormula: "Ashtakoota 36 Points: Varna(1)+Vashya(2)+Tara(3)+Yoni(4)+Maitri(5)+Gana(6)+Bhakoot(7)+Nadi(8)",
+				Layer:          "D1",
+				TaraName:       taraAB.Name,
+				TaraScore:      taraAB.Score,
+				GanaCompat:     ashtakoota.GanaDescription,
+				YoniCompat:     ashtakoota.YoniDescription,
+				NadiCompat:     ashtakoota.NadiDescription,
+			})
+		}
+	}
+	return edges
+}
+
+func getDrishtiRule(body string, house int) (rule string, angle int) {
+	switch body {
+	case "Mars":
+		switch house {
+		case 4:
+			return "Mars 4th Aspect (Chaturtha - 100% Special)", 90
+		case 7:
+			return "Mars 7th Aspect (Saptama - Full 180°)", 180
+		case 8:
+			return "Mars 8th Aspect (Ashtama - 100% Special)", 210
+		}
+	case "Jupiter":
+		switch house {
+		case 5:
+			return "Jupiter 5th Aspect (Panchama / Trikona - 100% Special)", 120
+		case 7:
+			return "Jupiter 7th Aspect (Saptama - Full 180°)", 180
+		case 9:
+			return "Jupiter 9th Aspect (Navama / Trikona - 100% Special)", 240
+		}
+	case "Saturn":
+		switch house {
+		case 3:
+			return "Saturn 3rd Aspect (Tritiya - 100% Special)", 60
+		case 7:
+			return "Saturn 7th Aspect (Saptama - Full 180°)", 180
+		case 10:
+			return "Saturn 10th Aspect (Dashama - 100% Special)", 270
+		}
+	case "Rahu":
+		switch house {
+		case 5:
+			return "Rahu 5th Aspect (Trine 120°)", 120
+		case 7:
+			return "Rahu 7th Aspect (Opposition 180°)", 180
+		case 9:
+			return "Rahu 9th Aspect (Trine 240°)", 240
+		}
+	case "Ketu":
+		switch house {
+		case 5:
+			return "Ketu 5th Aspect (Trine 120°)", 120
+		case 7:
+			return "Ketu 7th Aspect (Opposition 180°)", 180
+		case 9:
+			return "Ketu 9th Aspect (Trine 240°)", 240
+		}
+	default:
+		return fmt.Sprintf("%s 7th Aspect (Saptama - Full 180°)", body), 180
+	}
+	return fmt.Sprintf("%s %dth Aspect", body, house), house * 30
+}
+
+func ComputePairwiseMetrics(nodes []GephiNode, edges []GephiEdge) []PairwiseSynastryMetric {
+	personNames := make(map[string]string)
+	for _, n := range nodes {
+		personNames[n.PersonID] = n.PersonName
+	}
+	persons := make([]string, 0, len(personNames))
+	for pid := range personNames {
+		persons = append(persons, pid)
+	}
+	sort.Strings(persons)
+
+	metrics := make([]PairwiseSynastryMetric, 0, len(persons)*(len(persons)-1)/2)
+	nodeMap := make(map[string]GephiNode, len(nodes))
+	for _, n := range nodes {
+		nodeMap[n.ID] = n
+	}
+
+	for i := 0; i < len(persons); i++ {
+		pA := persons[i]
+		for j := i + 1; j < len(persons); j++ {
+			pB := persons[j]
+
+			total, harm, neu, chal := 0, 0, 0, 0
+			for _, e := range edges {
+				src, okS := nodeMap[e.Source]
+				dst, okD := nodeMap[e.Target]
+				if !okS || !okD {
+					continue
+				}
+				if (src.PersonID == pA && dst.PersonID == pB) || (src.PersonID == pB && dst.PersonID == pA) {
+					total++
+					switch e.EdgeType {
+					case EdgeTypeHarmonious:
+						harm++
+					case EdgeTypeChallenging:
+						chal++
+					default:
+						neu++
+					}
+				}
+			}
+
+			ratio := 0.0
+			if total > 0 {
+				ratio = roundTo2(float64(harm) / float64(total))
+			}
+
+			moonA, okA := nodeMap[pA+"_Moon"]
+			moonB, okB := nodeMap[pB+"_Moon"]
+			ash := AshtakootaResult{Verdict: "N/A"}
+			if okA && okB {
+				ash = ComputeAshtakoota(moonA, moonB)
+			}
+
+			metrics = append(metrics, PairwiseSynastryMetric{
+				PersonA:           pA,
+				PersonB:           pB,
+				PersonAName:       personNames[pA],
+				PersonBName:       personNames[pB],
+				TotalEdges:        total,
+				HarmoniousEdges:   harm,
+				NeutralEdges:      neu,
+				ChallengingEdges:  chal,
+				HarmonyRatio:      ratio,
+				MoonTaraBala:      ash.TaraDescription,
+				MoonGanaCompat:    ash.GanaDescription,
+				MoonYoniCompat:    ash.YoniDescription,
+				MoonNadiCompat:    ash.NadiDescription,
+				AshtakootaScore:   ash.TotalScore,
+				AshtakootaVerdict: ash.Verdict,
+			})
+		}
+	}
+	return metrics
 }
 
 func newGephiEdge(seq int, u, v GephiNode, direction, relation, label string, weight float64, hasOrb bool, orb float64, drishtiHouse int) GephiEdge {
@@ -316,6 +629,20 @@ func newGephiEdge(seq int, u, v GephiNode, direction, relation, label string, we
 	scope := EdgeScopeInter
 	if u.PersonID == v.PersonID {
 		scope = EdgeScopeIntra
+	}
+
+	score := calculateMaitriRawScore(u, v)
+
+	relationThai := relation
+	switch relation {
+	case EdgeRelYuti:
+		relationThai = "กุม (Yuti)"
+	case EdgeRelDrishti:
+		relationThai = "เกณฑ์สายตา (Drishti)"
+	case EdgeRelParivartana:
+		relationThai = "สลับเรือนเกษตร (Parivartana)"
+	case EdgeRelNakshatra:
+		relationThai = "สมพงศ์นักษัตร (Nakshatra)"
 	}
 
 	return GephiEdge{
@@ -326,6 +653,7 @@ func newGephiEdge(seq int, u, v GephiNode, direction, relation, label string, we
 		Weight:       roundTo2(weight),
 		Label:        label,
 		Relation:     relation,
+		RelationThai: relationThai,
 		EdgeType:     edgeType,
 		Scope:        scope,
 		Polarity:     polarity,
@@ -334,7 +662,20 @@ func newGephiEdge(seq int, u, v GephiNode, direction, relation, label string, we
 		DrishtiHouse: drishtiHouse,
 		ColorLabel:   colorLabel,
 		Color:        color,
+		Score:        score,
 	}
+}
+
+func calculateMaitriRawScore(u, v GephiNode) int {
+	a := effectivePlanet(u)
+	b := effectivePlanet(v)
+	if a == b {
+		if harmoniousSamePlanets[a] {
+			return 1
+		}
+		return 0
+	}
+	return grahaAttitude(a, b) + grahaAttitude(b, a)
 }
 
 // effectivePlanet แปลงโหนดลัคนาให้เป็นดาวเจ้าเรือนลัคนา (Lagnesh) สำหรับประเมิน Graha Maitri

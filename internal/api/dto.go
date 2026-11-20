@@ -75,6 +75,7 @@ type GephiReq = calculator.GephiReq
 type GephiGraph = calculator.GephiGraph
 type GephiNode = calculator.GephiNode
 type GephiEdge = calculator.GephiEdge
+type PairwiseSynastryMetric = calculator.PairwiseSynastryMetric
 type GephiHouseGraph = calculator.GephiHouseGraph
 type GephiHouseNode = calculator.GephiHouseNode
 type GephiKarmaGraph = calculator.GephiKarmaGraph
@@ -84,6 +85,12 @@ type GephiNakshatraGraph = calculator.GephiNakshatraGraph
 type GephiNakshatraNode = calculator.GephiNakshatraNode
 type GephiNakshatraEdge = calculator.GephiNakshatraEdge
 type GephiColor = calculator.GephiColor
+
+type GephiGraphWrapperResp struct {
+	Status          string                   `json:"status"`
+	Graph           calculator.GephiGraph    `json:"graph"`
+	PairwiseMetrics []PairwiseSynastryMetric `json:"pairwise_metrics"`
+}
 
 // GephiWrapperReq รองรับทั้ง JSON แบบ Flat ({"persons":[...]}) และแบบห่อใน {"gephiReq":{"persons":[...]}}
 type GephiWrapperReq struct {

@@ -371,9 +371,35 @@
             "v1",
             "hora",
             "gephi"
+          ],
+          "query": [
+            {
+              "key": "format",
+              "value": "zip",
+              "description": "Optional: ส่งออกเป็น ZIP (nodes.csv + links.csv) สำหรับรันใน Cosmograph (run.cosmograph.app) หรือ Gephi Data Laboratory",
+              "disabled": true
+            },
+            {
+              "key": "format",
+              "value": "json",
+              "description": "Optional: ส่งออกเป็น JSON พร้อม pairwise_metrics แทน GEXF XML",
+              "disabled": true
+            },
+            {
+              "key": "format",
+              "value": "nodes_csv",
+              "description": "Optional: ส่งออกเฉพาะไฟล์ nodes.csv",
+              "disabled": true
+            },
+            {
+              "key": "format",
+              "value": "links_csv",
+              "description": "Optional: ส่งออกเฉพาะไฟล์ links.csv",
+              "disabled": true
+            }
           ]
         },
-        "description": "ส่งออกข้อมูลโครงสร้างเครือข่ายโหราศาสตร์พระเวท (Triad / Multi-Person Synastry + Intra-chart) เป็นไฟล์ GEXF 1.2 XML (.gexf) พร้อมโหนดคนละ 10 ดวง (Lagna + 9 ดาว), Attributes (Rasi, Degree, Nakshatra, Dignity/Bala -> Node Size), และเส้นเชื่อม (Yuti, Graha Drishti, Parivartana) แยกสีตาม Graha Maitri (Blue/Gray/Red)"
+        "description": "ส่งออกข้อมูลโครงสร้างเครือข่ายโหราศาสตร์พระเวท (Synastry + Intra-chart) เป็นไฟล์ GEXF 1.3 XML (default) หรือ ZIP (?format=zip / ?format=cosmograph มี nodes.csv + links.csv สำหรับ Cosmograph/Gephi) หรือ JSON (?format=json) พร้อม P0: GEXF 1.3 Mixed Graph รองรับ Edge Direction สองทางและทิศทางเดียว, Birth Metadata ในโหนด, Scoring Formula รายเส้น | P1: Nakshatra Compatibility (Tara, Gana, Yoni, Nadi), Graha Drishti Details (drishti_rule, angle, mutual) | P2: Vimshottari Dasha Active Timing และ Pairwise Synastry Metrics"
       },
       "response": []
     },

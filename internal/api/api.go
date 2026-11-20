@@ -477,19 +477,44 @@ func (h *Handler) decodeAndValidateGephiReq(w http.ResponseWriter, r *http.Reque
 }
 
 // HandleExportGephi ประมวลผลและส่งออกไฟล์ GEXF XML (.gexf) สำหรับเปิดในซอฟต์แวร์ Gephi (POST /api/v1/hora/gephi)
+// รองรับ ?format=json (JSON), ?format=zip / ?format=cosmograph (nodes.csv + links.csv ZIP สำหรับ Cosmograph / Gephi), ?format=nodes_csv, ?format=links_csv
 func (h *Handler) HandleExportGephi(w http.ResponseWriter, r *http.Request) {
 	req, ok := h.decodeAndValidateGephiReq(w, r)
 	if !ok {
 		return
 	}
 
-	h.logger.Info("Received Gephi GEXF export request",
+	h.logger.Info("Received Gephi export request",
 		zap.Int("person_count", len(req.Persons)),
 	)
 
 	graph := calculator.ComputeGephiGraph(req)
-	gexfBytes, err := FormatGEXF(graph)
-	h.writeGEXFResponse(w, "vedic-synastry.gexf", gexfBytes, err)
+
+	format := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("format")))
+	switch format {
+	case "json":
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		resp := GephiGraphWrapperResp{
+			Status:          "success",
+			Graph:           graph,
+			PairwiseMetrics: graph.PairwiseMetrics,
+		}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			h.logger.Error("Failed to encode gephi JSON response", zap.Error(err))
+		}
+	case "zip", "cosmograph":
+		zipBytes, err := FormatGephiCSVZip(graph)
+		h.writeAttachmentResponse(w, "application/zip", "vedic-synastry.zip", zipBytes, err)
+	case "nodes_csv":
+		csvBytes, err := FormatGephiNodesCSV(graph.Nodes)
+		h.writeAttachmentResponse(w, "text/csv; charset=utf-8", "nodes.csv", csvBytes, err)
+	case "links_csv", "edges_csv":
+		csvBytes, err := FormatGephiLinksCSV(graph.Edges)
+		h.writeAttachmentResponse(w, "text/csv; charset=utf-8", "links.csv", csvBytes, err)
+	default:
+		gexfBytes, err := FormatGEXF(graph)
+		h.writeGEXFResponse(w, "vedic-synastry.gexf", gexfBytes, err)
+	}
 }
 
 // HandleExportGephiHouses ประมวลผลและส่งออกไฟล์ GEXF XML (.gexf) โครงข่ายภพเรือนและดาวเจ้าเรือน (POST /api/v1/hora/gephi_houses)

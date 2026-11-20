@@ -157,13 +157,16 @@ Dasha(Moon:Ardra): MD:Sa(2022-11-25..2041-11-24)/AD:Me(2025-11-27..2028-08-06)/P
 ```
 
 ### 4.8 `POST /api/v1/hora/gephi`
-ส่งออกข้อมูลโครงสร้างเครือข่ายโหราศาสตร์พระเวทสำหรับ 2 คนขึ้นไป (เช่น Triad Synastry 3 คน = 30 Nodes) เป็นไฟล์ **GEXF 1.2 XML** (`application/gexf+xml`, `attachment; filename="vedic-synastry.gexf"`) เปิดในซอฟต์แวร์ Gephi ได้ทันที
-- **Nodes (คนละ 10 โหนด):** `<PersonID>_Lagna`, `<PersonID>_Sun` .. `<PersonID>_Ketu` พร้อม Attributes (`Rasi` 1-12, `Degree` 0-30, `Nakshatra` 1-27, `Dignity`, `Bala`, `<viz:size>`, `<viz:color>`, D9, House, Retrograde/Combust/Vargottama)
-- **Edges (Inter-person & Intra-chart):**
-  - `Yuti`: Undirected, น้ำหนัก `3.0–10.0` แปรผกผันกับ Orb (`≤ 3°` = `10.0`)
-  - `Graha Drishti`: Directed (เกณฑ์ 7 ทุกดาว; อังคาร 4,7,8; พฤหัสบดี/ราหู/เกตุ 5,7,9; เสาร์ 3,7,10), น้ำหนัก `4.0–7.0` แปรผกผันกับ Orb องศาระหว่างราศี
-  - `Parivartana`: Undirected (สลับเกษตรระหว่างเจ้าเรือน), น้ำหนัก `8.0`
-- **Edge Type (Graha Maitri 3 สถานะ):** `Harmonious` (สีน้ำเงิน), `Neutral` (สีเทา), `Challenging` (สีแดง) โดยจุดลัคนาอิงเจ้าเรือนลัคนา (`Lagnesh`)
+ส่งออกข้อมูลโครงสร้างเครือข่ายโหราศาสตร์พระเวทสำหรับ 2 คนขึ้นไป (เช่น Triad Synastry 3 คน = 30 Nodes) เป็นไฟล์ **GEXF 1.3 XML** (`application/gexf+xml`, `attachment; filename="vedic-synastry.gexf"`), รูปแบบ **JSON** ผ่าน `?format=json`, หรือไฟล์ **ZIP สำหรับ Cosmograph (run.cosmograph.app)** และ Gephi Data Laboratory ผ่าน `?format=zip` หรือ `?format=cosmograph` (พร้อม `?format=nodes_csv` และ `?format=links_csv`)
+- **Cosmograph (run.cosmograph.app) Ready:** ดาวน์โหลดไฟล์ `vedic-synastry.zip` ซึ่งบรรจุ `nodes.csv` (มี `id`, `label`, `person`, `body`, `rasi`, `dignity`, `bala`, `size`, `color`, `house`) และ `links.csv` (มี `source`, `target`, `weight`, `relation`, `relation_thai`, `edge_type`, `color`) ลากวางลงใน Cosmograph เพื่อรัน GPU Force-directed 2D/3D Graph ได้ทันที
+- **P0: มาตรฐาน Edge Direction & GEXF 1.3 Mixed Graph:** กำหนดกราฟเป็น `defaultedgetype="mixed"` เพื่อรองรับทั้งเส้นแบบสองทาง (`type="undirected"` สำหรับ `Yuti`, `Parivartana`, `Nakshatra Compatibility`) และเส้นทิศทางเดียว (`type="directed"` สำหรับ `Graha Drishti`) แก้ไขปัญหา Gephi SEVERE Error `Edge type doesn't fit with default set (DIRECTED), edge is ignored` ทำให้ Gephi โหลดเส้นกุมทั้งหมดได้ครบ 100%
+- **P0: การกุมกันในเรือนราศี D1 (Yuti in Rasi):** ระบุ `relation_thai="กุม (Yuti)"`, `rasi`, `rasi_name`, `rasi_thai` และ Label เช่น `Yuti in Cancer / กุมในกรกฎ (1.11°)` บนเส้นเชื่อม ให้สามารถตรวจสอบและฟิลเตอร์ตามเรือนราศีได้ทันทีใน Gephi Data Laboratory (เน้น D1 ราศีจักรล้วน)
+- **P0: Birth Metadata ในโหนด:** ตรวจสอบตำแหน่งดาวย้อนหลังด้วย `birth_date`, `birth_time`, `time_zone`, `latitude`, `birth_longitude`, `julian_day`, `ayanamsa`
+- **P0: Scoring Formula รายเส้น:** ระบุ `score`, `base_weight`, `scoring_formula` อย่างชัดเจนและตรวจสอบซ้ำได้
+- **P1: Nakshatra Compatibility:** โหนดมีคุณสมบัติ `nakshatra_gana` (Deva/Manushya/Rakshasa), `nakshatra_yoni` (14 สัตว์), `nakshatra_nadi` (Adi/Madhya/Antya) และมีเส้นเชื่อมข้ามดวงระหว่างดวงจันทร์ (`Nakshatra Compatibility`) ตามเกณฑ์อัษฐกูฏ 36 คะแนน พร้อม `tara_name`, `tara_score`, `gana_compat`, `yoni_compat`, `nadi_compat`
+- **P1: Graha Drishti Details:** เพิ่ม `drishti_rule`, `is_mutual`, และ `aspect_angle` (90°, 120°, 180°, 210°, 240°)
+- **P2: Vimshottari Dasha Active Timing:** โหนดระบุดาวที่กำลังเสวยอายุ MD/AD/PD ด้วย `is_dasha_active`, `dasha_role`, `dasha_period`
+- **P2: Pairwise Synastry Metrics:** สรุปสถิติความสัมพันธ์รายคู่ (`PairwiseSynastryMetric`: Harmony Ratio, Ashtakoota 36 คะแนน และคำวินิจฉัย) ฝังในคำอธิบาย GEXF และเข้าถึงได้โดยตรงผ่าน `?format=json`
 
 ### 4.9 `POST /api/v1/hora/gephi_houses`
 ส่งออกข้อมูลโครงสร้างเครือข่ายภพเรือนโหราศาสตร์พระเวท (Bipartite House-Planet Network) สำหรับ 2 คนขึ้นไป เป็นไฟล์ **GEXF 1.2 XML** (`application/gexf+xml`, `attachment; filename="vedic-houses-synastry.gexf"`) เปิดในซอฟต์แวร์ Gephi ได้ทันที

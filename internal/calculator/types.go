@@ -400,58 +400,123 @@ type GephiColor struct {
 
 // GephiNode แทนโหนด (ลัคนาหรือดาวเคราะห์ 1 ดวงของบุคคล) ในกราฟ Gephi
 type GephiNode struct {
-	ID            string
-	Label         string
-	PersonID      string
-	PersonName    string
-	Body          string
-	BodyThai      string
-	Rasi          int
-	RasiName      string
-	RasiThai      string
-	Degree        float64
-	Longitude     float64
-	Nakshatra     int
-	NakshatraName string
-	NakshatraPada int
-	NakshatraLord string
-	Dignity       string
-	DignityThai   string
-	Bala          float64
-	NodeSize      float64
-	House         int
-	IsRetrograde  bool
-	IsCombust     bool
-	IsVargottama  bool
-	D9Rasi        int
-	D9RasiName    string
-	D9Dignity     string
-	Color         GephiColor
+	ID            string     `json:"id"`
+	Label         string     `json:"label"`
+	PersonID      string     `json:"person"`
+	PersonName    string     `json:"person_name"`
+	Body          string     `json:"body"`
+	BodyThai      string     `json:"body_thai"`
+	Rasi          int        `json:"rasi"`
+	RasiName      string     `json:"rasi_name"`
+	RasiThai      string     `json:"rasi_thai"`
+	Degree        float64    `json:"degree"`
+	Longitude     float64    `json:"longitude"`
+	Nakshatra     int        `json:"nakshatra"`
+	NakshatraName string     `json:"nakshatra_name"`
+	NakshatraPada int        `json:"nakshatra_pada"`
+	NakshatraLord string     `json:"nakshatra_lord"`
+	Dignity       string     `json:"dignity"`
+	DignityThai   string     `json:"dignity_thai"`
+	Bala          float64    `json:"bala"`
+	NodeSize      float64    `json:"node_size"`
+	House         int        `json:"house"`
+	IsRetrograde  bool       `json:"is_retrograde"`
+	IsCombust     bool       `json:"is_combust"`
+	IsVargottama  bool       `json:"is_vargottama"`
+	D9Rasi        int        `json:"d9_rasi"`
+	D9RasiName    string     `json:"d9_rasi_name"`
+	D9Dignity     string     `json:"d9_dignity"`
+	Color         GephiColor `json:"color"`
+
+	// P0: Birth Metadata สำหรับตรวจสอบตำแหน่งดาวย้อนหลัง
+	BirthDate      string  `json:"birth_date,omitempty"`
+	BirthTime      string  `json:"birth_time,omitempty"`
+	TimeZone       float64 `json:"time_zone,omitempty"`
+	Latitude       float64 `json:"latitude,omitempty"`
+	BirthLongitude float64 `json:"birth_longitude,omitempty"`
+	JulianDay      float64 `json:"julian_day,omitempty"`
+	Ayanamsa       string  `json:"ayanamsa,omitempty"`
+
+	// P1: Nakshatra Compatibility Attributes (Gana, Yoni, Nadi)
+	NakshatraGana string `json:"nakshatra_gana,omitempty"`
+	NakshatraYoni string `json:"nakshatra_yoni,omitempty"`
+	NakshatraNadi string `json:"nakshatra_nadi,omitempty"`
+
+	// P2: Vimshottari Dasha Active Timing Status
+	IsDashaActive bool   `json:"is_dasha_active,omitempty"`
+	DashaRole     string `json:"dasha_role,omitempty"` // "Mahadasha", "Antardasha", "Pratyantardasha"
+	DashaPeriod   string `json:"dasha_period,omitempty"`
 }
 
-// GephiEdge แทนเส้นเชื่อมความสัมพันธ์ระหว่างโหนด (Yuti, Graha Drishti, Parivartana)
+// GephiEdge แทนเส้นเชื่อมความสัมพันธ์ระหว่างโหนด (Yuti, Graha Drishti, Parivartana, D9 Synastry, Nakshatra)
 type GephiEdge struct {
-	ID           string
-	Source       string
-	Target       string
-	Type         string // "directed" หรือ "undirected"
-	Weight       float64
-	Label        string
-	Relation     string // "Yuti", "Graha Drishti", "Parivartana"
-	EdgeType     string // "Harmonious", "Neutral", "Challenging"
-	Scope        string // "inter" หรือ "intra"
-	Polarity     int    // 1, 0, -1
-	HasOrb       bool
-	Orb          float64
-	DrishtiHouse int // 3, 4, 5, 7, 8, 9, 10 (เฉพาะ Graha Drishti)
-	ColorLabel   string
-	Color        GephiColor
+	ID           string     `json:"id"`
+	Source       string     `json:"source"`
+	Target       string     `json:"target"`
+	Type         string     `json:"type"` // "directed", "mutual", "undirected"
+	Weight       float64    `json:"weight"`
+	Label        string     `json:"label"`
+	Relation     string     `json:"relation"` // "Yuti", "Graha Drishti", "Parivartana", "D9 Yuti", "D9 Drishti", "Nakshatra Compatibility"
+	RelationThai string     `json:"relation_thai,omitempty"` // "กุม (Yuti)", "เกณฑ์สายตา (Drishti)", ฯลฯ
+	EdgeType     string     `json:"edge_type"` // "Harmonious", "Neutral", "Challenging"
+	Scope        string     `json:"scope"` // "inter" หรือ "intra"
+	Polarity     int        `json:"polarity"` // 1, 0, -1
+	HasOrb       bool       `json:"has_orb"`
+	Orb          float64    `json:"orb"`
+	DrishtiHouse int        `json:"drishti_house"` // 3, 4, 5, 7, 8, 9, 10 (เฉพาะ Graha Drishti)
+	ColorLabel   string     `json:"color_label"`
+	Color        GephiColor `json:"color"`
+
+	// Rasi & Sign Info สำหรับแสดงเรือนราศีที่เกิดความสัมพันธ์ (เช่น กุมกันในราศีใด)
+	Rasi     int    `json:"rasi,omitempty"`
+	RasiName string `json:"rasi_name,omitempty"`
+	RasiThai string `json:"rasi_thai,omitempty"`
+
+	// P0: Scoring Formula รายเส้นเพื่อความโปร่งใสและตรวจสอบซ้ำได้
+	Score          int     `json:"score"`
+	BaseWeight     float64 `json:"base_weight"`
+	ScoringFormula string  `json:"scoring_formula,omitempty"`
+
+	// P1: Layer (D1, D9, D1+D9)
+	Layer string `json:"layer,omitempty"`
+
+	// P1: Graha Drishti Detail (Aspect rule, angle, is_mutual)
+	DrishtiRule string `json:"drishti_rule,omitempty"`
+	IsMutual    bool   `json:"is_mutual,omitempty"`
+	AspectAngle int    `json:"aspect_angle,omitempty"`
+
+	// P1: Nakshatra Compatibility Details (Tara, Gana, Yoni, Nadi)
+	TaraName   string `json:"tara_name,omitempty"`
+	TaraScore  int    `json:"tara_score,omitempty"`
+	GanaCompat string `json:"gana_compat,omitempty"`
+	YoniCompat string `json:"yoni_compat,omitempty"`
+	NadiCompat string `json:"nadi_compat,omitempty"`
 }
 
-// GephiGraph เก็บโครงสร้างกราฟฉบับสมบูรณ์พร้อมโหนดและเส้นเชื่อมสำหรับส่งออก GEXF
+// PairwiseSynastryMetric เก็บสถิติและผลประเมินความสัมพันธ์เปรียบเทียบรายคู่
+type PairwiseSynastryMetric struct {
+	PersonA           string  `json:"person_a"`
+	PersonB           string  `json:"person_b"`
+	PersonAName       string  `json:"person_a_name"`
+	PersonBName       string  `json:"person_b_name"`
+	TotalEdges        int     `json:"total_edges"`
+	HarmoniousEdges   int     `json:"harmonious_edges"`
+	NeutralEdges      int     `json:"neutral_edges"`
+	ChallengingEdges  int     `json:"challenging_edges"`
+	HarmonyRatio      float64 `json:"harmony_ratio"`
+	MoonTaraBala      string  `json:"moon_tara_bala"`
+	MoonGanaCompat    string  `json:"moon_gana_compat"`
+	MoonYoniCompat    string  `json:"moon_yoni_compat"`
+	MoonNadiCompat    string  `json:"moon_nadi_compat"`
+	AshtakootaScore   float64 `json:"ashtakoota_score"`
+	AshtakootaVerdict string  `json:"ashtakoota_verdict"`
+}
+
+// GephiGraph เก็บโครงสร้างกราฟฉบับสมบูรณ์พร้อมโหนด เส้นเชื่อม และดัชนีความสัมพันธ์รายคู่สำหรับส่งออก GEXF / JSON
 type GephiGraph struct {
-	Nodes []GephiNode
-	Edges []GephiEdge
+	Nodes           []GephiNode              `json:"nodes"`
+	Edges           []GephiEdge              `json:"edges"`
+	PairwiseMetrics []PairwiseSynastryMetric `json:"pairwise_metrics,omitempty"`
 }
 
 // GephiHouseNode แทนโหนดในกราฟ Bipartite ภพเรือน (แยกเป็นโหนด "Planet" และโหนด "House")
